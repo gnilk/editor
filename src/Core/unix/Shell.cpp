@@ -53,6 +53,8 @@ bool Shell::Begin(const std::string &shell, const std::string &args,
         logger->Error("Begin: the shell is already started");
         return false;
     }
+    // Not the last one's kTerminated - whoever waits for kRunning would take it for this one's
+    ChangeState(State::kIdle);
     if (!StartShellProc(shell, args)) {
         return false;
     }
@@ -176,7 +178,8 @@ bool Shell::IsForegroundJobRunning() const {
 }
 
 std::string Shell::GetWorkingDirectory() const {
-    if (pid <= 0) {
+    // An ended shell's pid can be another process by now
+    if ((pid <= 0) || (GetState() == State::kTerminated)) {
         return {};
     }
 #if defined(GEDIT_MACOS)
@@ -341,9 +344,15 @@ void Shell::ConsumePty() {
         }
     }
 
+    bool isClosedByUs = (GetState() == State::kTerminate);
     ReapChild();
 
     logger->Debug("Leaving ConsumePty for pid=%d", pid);
     CleanUp();
+    // Close() may have come while the child was reaped
+    isClosedByUs = isClosedByUs || (GetState() == State::kTerminate);
     ChangeState(State::kTerminated);
+    if (!isClosedByUs && onExit) {
+        onExit();
+    }
 }

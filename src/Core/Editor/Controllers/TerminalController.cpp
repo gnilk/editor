@@ -3,6 +3,7 @@
 //
 
 #include <algorithm>
+#include <fmt/format.h>
 
 #include "TerminalController.h"
 #include "Core/Editor.h"
@@ -82,14 +83,26 @@ void TerminalController::Begin() {
     shell.SetOutputDelegate([this](const uint8_t *buffer, size_t length) {
         HandleTerminalData(buffer, length);
     });
-
-    auto shellBinary    = settings.GetStr("shell", "");
-    auto shellInitStr   = settings.GetStr("init", "-ils");
-    auto shellInitScript = settings.GetSequenceOfStr("bootstrap");
+    shell.SetExitDelegate([this]() {
+        OnShellEnded();
+    });
     auto altArrows = settings.GetStr("alt_arrows", "");
     if (!altArrows.empty()) {
         isAltArrowsAsWords = (altArrows == "words");
     }
+
+    // Restore persisted scrollback (terminal-scrollback.md §8.2) BEFORE the shell starts - the pty
+    // thread mutates the grid the instant shell.Begin() returns, so the seeded history must already be in
+    // place. A no-op when nothing was saved, the feature is off, or the .bin is missing/corrupt.
+    FromSession(restoreScrollbackFile);
+    StartShell();
+    LoadCmdHistory();
+}
+
+void TerminalController::StartShell() {
+    auto shellBinary    = settings.GetStr("shell", "");
+    auto shellInitStr   = settings.GetStr("init", "-ils");
+    auto shellInitScript = settings.GetSequenceOfStr("bootstrap");
     // §4.2 (TS-3c): opt-in OSC 133 shell integration - appends prompt hooks that emit semantic-prompt
     // markers, giving exact command boundaries + exit codes. Off by default (it rewrites PS1).
     if (settings.GetBool("shell_integration", false)) {
@@ -97,15 +110,11 @@ void TerminalController::Begin() {
         shellInitScript.insert(shellInitScript.end(), osc133.begin(), osc133.end());
     }
 
-    // Restore persisted scrollback (terminal-scrollback.md §8.2) BEFORE the shell starts - the pty
-    // thread mutates the grid the instant shell.Begin() returns, so the seeded history must already be in
-    // place. A no-op when nothing was saved, the feature is off, or the .bin is missing/corrupt.
-    FromSession(restoreScrollbackFile);
-
     if (!shell.Begin(shellBinary, shellInitStr, shellInitScript)) {
         // No pty thread was started, so the state never leaves kIdle - waiting for kRunning would spin
-        // forever before the first frame. Carry on with a dead terminal instead.
+        // forever before the first frame. Carry on without one - the panel says so.
         logger->Error("Shell failed to start - terminal is unavailable");
+        OnShellEnded();
         return;
     }
 
@@ -116,8 +125,46 @@ void TerminalController::Begin() {
         }
         std::this_thread::yield();
     }
+}
 
-    LoadCmdHistory();
+// Pty thread, after the last output. Modes a program left on when it went down with its shell (full screen, mouse
+// reports, a hidden cursor, ...) are the panel's again; the notice is on a row of its own.
+void TerminalController::OnShellEnded() {
+    static constexpr std::string_view resetModes =
+        "\x1b[?1l\x1b>\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1006l\x1b[?2004l\x1b[?2026l"
+        "\x1b[4l\x1b[20l\x1b[?6l\x1b[?7h\x1b[?25h\x1b(B\x0f\x1b[r\x1b[0m";
+    auto hint = settings.GetBool("enter_restarts_shell", true) ? "Enter starts a new one"
+                                                                     : settings.GetStr("shell_ended_hint", "close this tab");
+    {
+        std::lock_guard<std::mutex> guard(screenLock);
+        if (screen.IsAltScreen()) {
+            screen.Feed("\x1b[?1049l");
+        }
+        // The scroll region and origin mode take the cursor home
+        auto cursorPos = screen.GetCursorPos();
+        screen.Feed(resetModes);
+        screen.Feed(fmt::format("\x1b[{};{}H", cursorPos.y + 1, cursorPos.x + 1));
+        auto isRowUsed = (cursorPos.x > 0);
+        screen.Feed(std::string(isRowUsed ? "\r\n" : "") + "[the shell ended - " + hint + "]\r\n");
+        lastOutputAt = std::chrono::steady_clock::now();
+        syncStart.reset();
+        // A new shell may not mark its output
+        useOsc133Boundaries = false;
+    }
+    isShellEnded = true;
+    RequestRedraw();
+}
+
+// UI thread. In the same panel: its scrollback, its size, what is typed on the line.
+void TerminalController::RestartShell() {
+    shell.Close();
+    if (doesShellOwnLineEditing) {
+        ExitShellOwned();
+    }
+    isShellEnded = false;
+    StartShell();
+    std::lock_guard<std::mutex> guard(screenLock);
+    shell.SetWindowSize(screen.Cols(), screen.Rows());
 }
 
 // A '.goatedit' marker directory in the project registers a kProject search path; its presence opts the
@@ -495,7 +542,7 @@ bool TerminalController::HandleKeyPress(Cursor &cursor, size_t &idxActiveLine, c
     // (2) readline owns the line (entered on Tab/ShellCompletion). Keys pass through to the pty so
     //     readline can drive completion. Ctrl+C aborts readline's line, so we must drop back to
     //     local editing here or we'd be stuck in passthrough with a stale prompt anchor.
-    if (doesShellOwnLineEditing) {
+    if (DoesShellOwnLineEditing()) {
         bool handled = ForwardKeyPressToShell(keyPress);
         if (keyPress.IsCtrlPressed() && (keyPress.key == 'c' || keyPress.key == 'C')) {
             ExitShellOwned();
@@ -634,7 +681,7 @@ bool TerminalController::ForwardActionToShell(const EditorAction &kpAction) {
     if (IsTerminalEscapeHatch(kpAction)) {
         return false;
     }
-    if ((kpAction.uiAction == kUIAction::kUIActionCommitLine) && doesShellOwnLineEditing) {
+    if ((kpAction.uiAction == kUIAction::kUIActionCommitLine) && DoesShellOwnLineEditing()) {
         CommitShellOwnedLine();
         return true;
     }
@@ -727,7 +774,7 @@ void TerminalController::Paste(const std::u32string &text) {
         return;
     }
     auto bytes = UnicodeHelper::utf32to8(text);
-    if (IsAppActive() || doesShellOwnLineEditing) {
+    if (IsAppActive() || DoesShellOwnLineEditing()) {
         WriteToPty(gnilk::vt::EncodePaste(bytes, GetModes()));
         return;
     }
@@ -736,6 +783,9 @@ void TerminalController::Paste(const std::u32string &text) {
         inputLine->Insert(inputCursor.position.x, text);
         inputCursor.position.x += (int)text.length();
         ScrollToBottom();
+        return;
+    }
+    if (isShellEnded) {
         return;
     }
     // Several lines: readline takes the line (as on Tab completion). Bracketed when the shell asked for it (bash 5.1+,
@@ -761,7 +811,7 @@ void TerminalController::Promote(std::u32string text, bool isSubmit) {
     }
     if (IsAppActive()) {
         WriteToPty("\r");
-    } else if (doesShellOwnLineEditing) {
+    } else if (DoesShellOwnLineEditing()) {
         CommitShellOwnedLine();
     } else {
         CommitLine();
@@ -832,6 +882,9 @@ bool TerminalController::OnAction(const EditorAction &kpAction) {
     if (IsInterruptKey(kpAction.keyPress)) {
         InterruptLocalLine();
         Editor::Instance().TriggerUIRedraw();
+        return true;
+    }
+    if ((kpAction.action == kAction::kActionShellCompletion) && isShellEnded) {
         return true;
     }
     if (kpAction.action == kAction::kActionShellCompletion) {
@@ -965,7 +1018,7 @@ std::optional<std::u32string> TerminalController::GetLastOutputText() {
 // An unbound Ctrl chord at the local prompt acts on the line in the shell, as in any terminal: readline takes the line
 // (as on Tab), its cursor goes where the caret is, then the key. Not Ctrl+D - on an empty line it ends the shell.
 bool TerminalController::HandCtrlKeyToShell(const KeyPress &keyPress) {
-    if (keyPress.IsCommandPressed() || (keyPress.key == 'd') || (keyPress.key == 'D')) {
+    if (keyPress.IsCommandPressed() || (keyPress.key == 'd') || (keyPress.key == 'D') || isShellEnded) {
         return false;
     }
     EnterShellOwned();
@@ -1058,9 +1111,21 @@ int TerminalController::GetCursorXPos() {
 }
 
 void TerminalController::CommitLine() {
+    // What readline had when its shell ended ('exit') is not a line of ours
+    if (isShellEnded && doesShellOwnLineEditing) {
+        ExitShellOwned();
+    }
     std::u32string cmdLine(inputLine->Buffer());
+    if (isShellEnded && !PluginExecutor::IsPluginCommandLine(cmdLine)) {
+        // What is typed stays - the next Enter runs it
+        if (settings.GetBool("enter_restarts_shell", true)) {
+            RestartShell();
+            ScrollToBottom();
+            Editor::Instance().TriggerUIRedraw();
+        }
+        return;
+    }
     RecordCommand(cmdLine);
-
 
     inputLine->Clear();
     inputCursor.position.x = 0;
@@ -1093,6 +1158,9 @@ void TerminalController::RunDotCommand(const std::u32string &cmdLine) {
         screen.Feed(ConsoleText(cmdLine) + "\r\n");
     }
     PluginExecutor::ParseAndExecuteWithCmdPrefix(cmdLine);
+    if (isShellEnded) {
+        return;     // no prompt to bring back
+    }
     {
         std::lock_guard<std::mutex> guard(screenLock);
         screen.Feed("\x1b[A");

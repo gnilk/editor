@@ -97,6 +97,9 @@ ConfigNode AgentIntegrations::EditorAgentSettings(const ConfigNode &terminalSett
     settings.SetBool("persist_scrollback", false);
     settings.SetBool("promote_target", false);
     settings.SetBool("output_console", false);
+    // Its conversation ended with its shell - a new agent is a new conversation ('.agent start')
+    settings.SetBool("enter_restarts_shell", false);
+    settings.SetStr("shell_ended_hint", "'.agent start' starts a new Editor Agent");
     return settings;
 }
 

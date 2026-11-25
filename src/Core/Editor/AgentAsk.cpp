@@ -427,9 +427,21 @@ std::string AgentAsk::StartAgent() {
     if (!agent->IsAvailable()) {
         return "Not started - " + agent->Status();
     }
-    if (Editor::Instance().GetEditorAgentView() != nullptr) {
+    auto *agentView = Editor::Instance().GetEditorAgentView();
+    if ((agentView != nullptr) && !agentView->GetController().IsShellEnded()) {
         Editor::Instance().ShowEditorAgentTab();
         return "The Editor Agent runs already - shown";
+    }
+    if (agentView != nullptr) {
+        if (!questions.empty()) {
+            return "Not started - a question is out; again once it is done";
+        }
+        // Not under the command's feet: it may have been typed in that tab
+        RuntimeConfig::Instance().GetRootView().PostMessage([]() {
+            Editor::Instance().GetAgentAsk().RestartAgent();
+            Editor::Instance().ShowEditorAgentTab();
+        });
+        return "The Editor Agent's shell had ended - started over, a new conversation";
     }
     if (auto blocker = agent->StartBlocker(Editor::Instance().GetProjectRootPath()); !blocker.empty()) {
         return "Not started - " + blocker;

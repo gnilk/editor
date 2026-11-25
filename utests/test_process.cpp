@@ -38,6 +38,7 @@ extern "C" {
     DLL_EXPORT int test_process_startonce(ITesting *t);
     DLL_EXPORT int test_process_shellsurvives(ITesting *t);
     DLL_EXPORT int test_process_shellclose(ITesting *t);
+    DLL_EXPORT int test_process_shellexit(ITesting *t);
     DLL_EXPORT int test_process_shellclose_ignoreshup(ITesting *t);
     DLL_EXPORT int test_process_shellclose_output_on_hup(ITesting *t);
     DLL_EXPORT int test_process_shellclose_second_shell(ITesting *t);
@@ -306,6 +307,35 @@ DLL_EXPORT int test_process_shellclose(ITesting *t) {
     TR_ASSERT(t, isStopped);
     TR_ASSERT(t, msClose < 1000);
     shell.reset();
+    return kTR_Pass;
+}
+
+// A shell that ends by itself is told about, once, and a new one can be started in its place (hitlist #82); one that
+// Close() ended is not
+DLL_EXPORT int test_process_shellexit(ITesting *t) {
+    Shell shell;
+    std::atomic<int> nExits { 0 };
+    std::atomic<bool> isTerminatedAtExit { false };
+    shell.SetOutputDelegate([](const uint8_t *, size_t) {});
+    shell.SetExitDelegate([&shell, &nExits, &isTerminatedAtExit]() {
+        isTerminatedAtExit = (shell.GetState() == Shell::State::kTerminated);
+        nExits++;
+    });
+    std::u32string cmd = U"exit\n";
+    for (int round = 1; round <= 2; round++) {
+        TR_ASSERT(t, shell.Begin("/bin/sh", "-i", {}));
+        TR_ASSERT(t, WaitForShellState(shell, Shell::State::kRunning, 3000));
+        shell.SendCmd(cmd);
+        TR_ASSERT(t, WaitForShellState(shell, Shell::State::kTerminated, 3000));
+        // Joins the reader: the delegate has returned
+        shell.Close();
+        TR_ASSERT(t, nExits == round);
+        TR_ASSERT(t, isTerminatedAtExit);
+    }
+    TR_ASSERT(t, shell.Begin("/bin/sh", "-i", {}));
+    TR_ASSERT(t, WaitForShellState(shell, Shell::State::kRunning, 3000));
+    shell.Close();
+    TR_ASSERT(t, nExits == 2);
     return kTR_Pass;
 }
 

@@ -64,6 +64,13 @@ namespace gedit {
             onOutput = handler;
         }
 
+        // The shell ended by itself (exit, killed) - not through Close(). Called once on the pty thread, in state
+        // kTerminated, after the last output. Close() and then Begin() start a new one.
+        using ExitDelegate = std::function<void()>;
+        void SetExitDelegate(ExitDelegate handler) {
+            onExit = std::move(handler);
+        }
+
         // Written by the pty thread, polled by the UI thread - must be atomic or an optimised build may
         // hoist the load out of a wait loop and spin forever.
         State GetState() const {
@@ -113,6 +120,7 @@ namespace gedit {
         int      wakeFds[2] = { -1, -1 };   // Close() writes to [1] so the reader's poll() returns at once
 
         OutputDelegate onOutput = nullptr;
+        ExitDelegate onExit = nullptr;
     };
 }
 

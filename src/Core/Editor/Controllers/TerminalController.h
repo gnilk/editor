@@ -69,7 +69,10 @@ namespace gedit {
         void CommitLine();
         int GetCursorXPos();
 
-        bool DoesShellOwnLineEditing() const { return doesShellOwnLineEditing; }
+        bool DoesShellOwnLineEditing() const { return doesShellOwnLineEditing && !isShellEnded; }
+        // The shell ended by itself (hitlist #82) - the panel says so, and Enter starts a new one
+        // ('enter_restarts_shell', on unless the settings say no: the Editor Agent's tab)
+        bool IsShellEnded() const { return isShellEnded; }
 
         // An application owns the terminal: a full-screen app on the alternate screen, or any job in the foreground
         // (dialog, python, ssh, sleep, ...: the pty's foreground process group is not the shell's). Then every key
@@ -189,6 +192,10 @@ namespace gedit {
         void OnTitle(std::string_view newTitle) override;
 
     protected:
+        // The shell with the settings' bootstrap - the first one, or a new one after it ended
+        void StartShell();
+        void RestartShell();
+        void OnShellEnded();
         void SyncInputLineFromGrid();
         void EnterShellOwned();
         bool HandCtrlKeyToShell(const KeyPress &keyPress);
@@ -299,6 +306,8 @@ namespace gedit {
 #else
         bool isAltArrowsAsWords = false;
 #endif
+        // Set on the pty thread when the shell ends by itself, cleared on the UI thread by RestartShell
+        std::atomic<bool> isShellEnded = false;
         // Where the prompt ends, captured on the local->shell-owned transition (the real grid cursor
         // stays parked there while editing locally, since local edits never touch the grid). Used to
         // read the line back. The row is an abs id (TerminalScreen::AbsRowCount), so it follows the

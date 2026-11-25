@@ -665,6 +665,80 @@ def editor_agent(n):
     n('Editor Agent' not in text and 'view: editor_agent' not in text, f'the Editor Agent is not in the session ({sessions})')
 
 
+@check('#82 A shell that ends: the panel says so, Enter starts a new one')
+def shell_ended(n):
+    sb, work = sandbox('shell_ended')
+    fake_bin = os.path.join(sb, 'bin')
+    write(os.path.join(fake_bin, 'claude'), '#!/bin/sh\necho "fake-claude: $*"\nexec cat\n')
+    os.chmod(os.path.join(fake_bin, 'claude'), 0o755)
+    env = {'PATH': fake_bin + ':/usr/bin:/bin'}
+    user_config(sb, "main:\n  ai_integration: claude\nterminal:\n  shell: /bin/sh\n  bootstrap: [ \"echo boot-$((1+1))\" ]\n")
+    trust_claude(sb, work)
+    ended, again = 'the shell ended', 'Enter starts a new one'
+
+    def is_last(g, text):
+        rows = [l.strip() for l in g.screen.lines() if l.strip()]
+        return bool(rows) and text in rows[-1]
+
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False, env=env)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.5)
+        g.type('exit', wait=0.2)
+        g.send(ENTER, 0.5)
+        n(g.wait_text(ended, 4) and g.wait_text(again, 1), 'exit: the panel says the shell ended, and how to get one')
+        # A dot-command is the editor's, shell or not; a Ctrl chord and Tab have nowhere to go
+        g.type('.agent model', wait=0.2)
+        g.send(ENTER, 0.8)
+        n(g.wait_text("Editor Agent's model", 2), 'a dot-command still runs')
+        g.send(b'\x1b[119;5u', 0.3)
+        g.send(b'\t', 0.3)
+        # What is typed is kept, not run, by the Enter that starts the new shell
+        g.type('echo kept-$((40+2))', wait=0.2)
+        g.send(ENTER, 2.0)
+        n(g.wait_text('boot-2', 3), 'Enter: a new shell, its bootstrap run')
+        n(not g.screen.find('kept-42'), '... the typed line not run by it')
+        g.send(ENTER, 1.0)
+        n(g.wait_text('kept-42', 3), '... the next Enter runs it')
+        # A full-screen program goes down with its shell: the screen and the keyboard are the panel's again
+        g.type("printf '\\033[?1049h\\033[?1000h\\033[?25l'; kill -9 $$", wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_for(lambda g: is_last(g, ended), 4), 'killed in full screen: said on the normal screen')
+        g.send(ENTER, 2.0)
+        g.type('echo back-$((40+3))', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text('back-43', 3), '... and a new one works')
+        # readline had the line
+        g.type('exi', wait=0.2)
+        g.send(b'\x1b[117;5u', 0.4)
+        g.type('exit', wait=0.4)
+        g.send(ENTER, 1.0)
+        n(g.wait_for(lambda g: is_last(g, ended), 4), 'exit typed in readline: said')
+        g.send(ENTER, 2.0)
+        g.type('echo fine-$((40+4))', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text('fine-44', 3), '... and the line is the editor\'s again')
+
+        # The Editor Agent's: not by Enter (its conversation is over) - '.agent start' replaces it
+        g.type('.agent start', wait=0.2)
+        g.send(ENTER, 2.0)
+        n(g.wait_text('fake-claude', 3), 'the Editor Agent runs')
+        g.send(b'\x03', 0.8)
+        g.type('exit', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text(ended, 4) and g.wait_text("'.agent start'", 1), 'its shell ended: it names .agent start')
+        g.send(ENTER, 1.0)
+        n(not g.screen.find(again), '... Enter starts nothing')
+        g.send(alt('1'), 0.5)
+        g.type('.agent start', wait=0.2)
+        g.send(ENTER, 2.5)
+        n(g.wait_for(lambda g: g.screen.find('fake-claude') and not g.screen.find(ended), 4), '.agent start: a new one, not the dead tab')
+        g.send(alt('e'), 0.4)     # Esc in its tab is the agent's
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
 @check('#78 step 2 .ask: consent, the agent started, the prompt typed in once it settles, the answer opened')
 def editor_agent_ask(n):
     sb, work = sandbox('editor_agent_ask')

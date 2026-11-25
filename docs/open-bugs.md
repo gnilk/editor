@@ -4,7 +4,26 @@ Durable list of known defects we've chosen NOT to fix in-place yet, with enough 
 up cold. Referenced from CLAUDE.md ("Documentation") so it surfaces each session.
 
 Numbers are stable (commits, docs and notes refer to them) - a fixed bug is removed, never renumbered.
-**Next bug is #37.**
+**Next bug is #38.**
+
+---
+
+## 37. macOS: a crash at quit - the folder monitor posts to a runloop whose screen is gone
+
+**Seen:** 8 crash reports 2026-11-23 .. 25 (`~/Library/Logs/DiagnosticReports/goatedit-*.ips`), all editors started by
+`checks.py` (the ANSI backend); none from the window version. The check runs don't notice - `quit()` only waits for the
+exit. Intermittent. No repro yet.
+
+**The stacks, the same in all 8:** the main thread is destroying the workspace (`~Workspace` -> `~ProjectRoot` ->
+`MacOSFolderMonitorPoint::Stop`, waiting for the stream's queue); the queue's thread is in `OnFSEvents` -> `PostFlush` ->
+`Runloop::PostMessage` -> `WakeUp`, which faults at 0xa0 (2026-11-25 09:04).
+
+**Likely:** `Runloop::WakeUp` guards on `isRunning`, which is set true and never false, so after the loop ended it still
+asks `RuntimeConfig` for the screen. The session is saved before this (`Editor::Close`), so nothing is lost; the event may
+be that save.
+
+**Fix idea:** stop the monitors in `Editor::Close`, before the screen closes; and clear `isRunning` when the loop ends.
+The harness should check the exit status too.
 
 ---
 

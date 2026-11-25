@@ -27,8 +27,8 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   - [ ] Linux [x] Mac - trun: a failing test run in the panel (`trun --sequential ./libutests.so`) - "build: N errors" counts each failure once; `F8` goes to the failed `TR_ASSERT` line, "error 1/N: test_x_y: <exp>" (scripted: `build_messages_trun`)
 - **Build messages, step 4** (#52) - scripted: the code under a message (`messages_tab`), the gutter's colour (`python`)
   - [ ] Linux [ ] Mac - the window: the list (`Cmd/Ctrl+F8`, the Messages tab) shows each message's code on the line under it, in its colours
-  - [ ] Linux [ ] Mac - the window: after a build, the lines with an error have their number red in the gutter, a warning's orange / yellow
-  - [ ] Linux [ ] Mac - the window: `Cmd+click` (Linux `Ctrl+click`) a `file:line` in the terminal - a gcc / clang error, rustc's ` --> `, a Python traceback's `File "x.py", line 5` - opens it there; `Cmd/Ctrl+[` comes back; a plain word does nothing
+  - [ ] Linux [x] Mac - the window: after a build, the lines with an error have their number red in the gutter, a warning's orange / yellow
+  - [ ] Linux [x] Mac - the window: `Cmd+click` (Linux `Ctrl+click`) a `file:line` in the terminal - a gcc / clang error, rustc's ` --> `, a Python traceback's `File "x.py", line 5` - opens it there; `Cmd/Ctrl+[` comes back; a plain word does nothing
 - **Python** (#11, #52 step 4) - scripted (`python`: colours, `if x:` + Enter indents, `python3 crash.py` -> `F8` to line 2)
   - [ ] Linux [ ] Mac - the window: a `.py` file - keywords, `def` / `class` names, strings (also `f"..."`, `"""` over
     lines), numbers, comments, `@decorator` coloured; Enter after a line ending in `:` indents 4
@@ -37,42 +37,48 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 - **Terminal tabs** (#53) - scripted (`terminal_tabs`: Ctrl+Shift+T / W, Alt+1/2, the job question, a restart)
   - [x] Linux [x] Mac - the window: `Cmd+T` / `Ctrl+Shift+T` in the terminal opens a second tab (the row shows), `Cmd+W` / `Ctrl+Shift+W` closes it; `Cmd/Opt+1`, `2` / `Alt+1`, `2` and a click on a tab switch; a restart brings the tabs back, the same one shown; `make` in one tab, `ls` in the other: `F8` still has the build's errors
 - **Configured tabs, an agent's tab** (#53 step 4) - scripted (`agent_tab`: `panel.tabs`, a section inheriting `terminal`, its bootstrap, a project's not run, Cmd/Ctrl+Enter to `promote_target`, kept in the session)
-  - [ ] Linux [ ] Mac - the window: `panel.tabs` with Shell and Claude (`ai_agent: { inherit: terminal, bootstrap: ["claude"], promote_target: yes }`, the commented example in `config.yml`) in the user config, a project with no session: both tabs, `claude` running in the second; `Cmd/Ctrl+Enter` on a line in the editor shows the Claude tab with the line in it; a restart: both back
+  - [ ] Linux [x] Mac - the window: `panel.tabs` with Shell and Claude (`ai_agent: { inherit: terminal, bootstrap: ["claude"], promote_target: yes }`, the commented example in `config.yml`) in the user config, a project with no session: both tabs, `claude` running in the second; `Cmd/Ctrl+Enter` on a line in the editor shows the Claude tab with the line in it; a restart: both back
 - **Landscape: the right panel** (#77, branch `feature/layout-right-panel`) - scripted (`right_panel`: `main.layout: landscape` +
   `panel_right.tabs`, both panels at once, Alt+T between them and back to the last one, promote to the right panel, the
   home kept through a portrait run; `right_panel_live`: `.layout portrait` / `landscape` while running, the shell lives on,
   `.panel move`; `right_panel_auto`: `auto` follows a resize of the terminal both ways)
-  - [ ] Linux [ ] Mac - the window: `main.layout: landscape` and `panel_right: { tabs: [ { name: Claude, config: ai_agent } ] }`
+  - [ ] Linux [x] Mac - the window: `main.layout: landscape` and `panel_right: { tabs: [ { name: Claude, config: ai_agent } ] }`
     in the user config, a project with no session (or `rm .goatedit/session.yml`): the Claude tab full height on the right,
     the Shell at the bottom, the status line across the whole width; drag the right divide, `Opt/Alt+A` / `D` in the right
     panel move it; `Opt/Alt+T` from the editor goes to the panel used last, again goes to the other; a restart keeps both
-  - [ ] Linux [ ] Mac - `main.layout: auto`: a maximised window starts landscape, one on half the screen portrait; drag the
+  - [ ] Linux [x] Mac - `main.layout: auto`: a maximised window starts landscape, one on half the screen portrait; drag the
     window's edge across 3:2 - it switches once (no flicker near the line), `claude` keeps running, its output intact
-  - [ ] Linux [ ] Mac - `.layout portrait` / `.layout landscape` / `.layout` (prints it) while `claude` runs; `.panel move` in
-    the right panel's terminal - the tab goes to the bottom (the right panel closes with its last tab), again from the bottom:
-    back; a restart keeps where it went
-  - [ ] Linux [ ] Mac - `main.layout: portrait` with the same session: Claude is a tab in the bottom panel; back to landscape:
+  - [ ] Linux [x] Mac - `.layout portrait` / `.layout landscape` / `.layout auto` / `.layout` (prints it) while `claude` runs
+  - [ ] Linux [x] Mac - `.panel move` in the right panel's terminal - the tab goes to the bottom (the right panel closes with
+    its last tab), again from the bottom: back; a restart keeps where it went
+    - Mac 2026-11-25: works (tried on the Messages tab). Esc in a running agent's tab is the agent's, so no quick mode there:
+      from the editor, `Esc` + `.panel move` moves the tab shown in the panel used last
+  - [ ] Linux [x] Mac - `main.layout: portrait` with the same session: Claude is a tab in the bottom panel; back to landscape:
     on the right again
 - **Agent integration, the seam** (#78, branch `feature/agent-integration`) - scripted (`agent_integration`: `.agent` says none by
   default and with a project config naming claude; claude from the user config - plan mode for the question agent, the
   transcript folder; an unknown name: a notice)
-  - [ ] Linux [ ] Mac - the window: `.agent` with and without `main.ai_integration: claude` in the user config; with claude,
+  - [ ] Linux [x] Mac - the window: `.agent` with and without `main.ai_integration: claude` in the user config; with claude,
     the transcript folder it names is where Claude Code keeps this project's (`ls` it)
+    - Mac 2026-11-25: tried with claude; without it is the scripted part
 - **The Editor Agent's tab** (#78 step 1, branch `feature/editor-agent-tab`, `agent-integration.md` §6.2) - scripted
   (`editor_agent`: `.agent start` with a fake `claude`: its own bottom tab named Editor Agent, the banner, plan mode, the
   answer in the shell, a second start shows it, not in the session)
-  - [ ] Linux [ ] Mac - the window: with `main.ai_integration: claude`, `.agent start` - the tab label stands out (bold,
+  - [ ] Linux [x] Mac - the window: with `main.ai_integration: claude`, `.agent start` - the tab label stands out (bold,
     violet - `tab_editor_agent` in the theme), the banner line under the tab row stays while Claude runs full screen, Claude starts in plan mode (this starts a real
     agent: your account); its title doesn't rename the tab; Cmd/Ctrl+W on it asks, then stops it; `.panel move` on it
     says it stays; restart - it isn't brought back
+    - Mac 2026-11-25: all of it, `Cmd+W` with the real agent too (it stops, the tab closes). Scripted with fake agents the same
+      day: an agent that ignores SIGHUP outlives its tab
 - **Questions from templates** (#78 step 3, branch `feature/editor-agent-ask`, `agent-integration.md` §6.4) - scripted
   (`editor_agent_template`, `editor_agent`: the tools' output in the consent, untracked files named only, unsaved files
   said, `.agent model` starts the agent over)
-  - [ ] Linux [ ] Mac - the window, with the real agent (your account): `.ask why` on a line; `.agent model sonnet` with the
+  - [ ] Linux [x] Mac - the window, with the real agent (your account): `.ask why` on a line; `.agent model sonnet` with the
     Editor Agent running - its tab comes back with Sonnet, the focus stays; your own `claude` still has its own model;
     then `.ask structure` - the consent names `sonnet`
+    - Mac 2026-11-25: `.agent model`, `.ask why`, `.ask structure` used for real (Sonnet, Opus)
 - **Messages tab** (#53 step 5) - scripted (`messages_tab`: the count in the label, Ctrl+F8 to the tab, Down + Enter, F8 on from there, Ctrl+Shift+W closes it - not the editor's file - then Ctrl+F8 is the modal)
-  - [ ] Linux [ ] Mac - the window: `- view: messages` in `panel.tabs` (a project with no session), `make` with errors in a Shell tab: 'Messages (N)' while it runs; `Cmd/Ctrl+F8` shows the tab; a double-click on a row goes there; `F8` moves the selection in the tab
+  - [ ] Linux [x] Mac - the window: `- view: messages` in `panel.tabs` (a project with no session), `make` with errors in a Shell tab: 'Messages (N)' while it runs; `Cmd/Ctrl+F8` shows the tab; a double-click on a row goes there; `F8` moves the selection in the tab
 - **`.theme use` at a level** (#59) - scripted (`theme_project`: a project config with its own theme, Keep / Remove, `--project`)
   - [ ] Linux [x] Mac - the window: in a project whose `.goatedit/config.yml` sets `main.theme`, `.theme use <other>` asks; Keep leaves this project's theme and says so, Remove takes it out of the project config and switches; `.theme list` names where the theme comes from
 - **Text weight** (#54) - `sdl.text_gamma` (default 1.2, the user's pick - VS Code's 1.5 match was too dark; 1.0 = as before)
@@ -80,7 +86,7 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 - **Unbound Ctrl keys go to the shell** (decided 2026-11-19) - scripted: `terminalcontroller ctrl_to_shell`
   - [ ] Linux [ ] Mac - the window, at the local prompt: type `echo one two`, `Left` x4, `Ctrl+W` - the shell deletes `one`; `Ctrl+U` / `Ctrl+K` / `Ctrl+Y` work; `Ctrl+D` on an empty line does nothing (the shell stays); `Ctrl+T` (Linux) still opens Go to symbol
 - **Font styles in themes** (#55)
-  - [x] Linux [ ] Mac - the window: `.theme use vscode-dark-2026`, open a `.md` file - `# headings`, `**strong**` and `---` bold, `*emphasis*` italic, links underlined; C++ looks as before (no bold names); `.theme use default theme` - code plain, Markdown headings / `**strong**` bold and `*emphasis*` italic (added by hand 2026-11-19)
+  - [x] Linux [x] Mac - the window: `.theme use vscode-dark-2026`, open a `.md` file - `# headings`, `**strong**` and `---` bold, `*emphasis*` italic, links underlined; C++ looks as before (no bold names); `.theme use default theme` - code plain, Markdown headings / `**strong**` bold and `*emphasis*` italic (added by hand 2026-11-19)
 - **Italic in the SDL window** - a synthetic slant (no italic face; theme font styles are #55)
   - [x] Linux [x] Mac - in the terminal: `printf '\e[3mitalic\e[0m \e[1;3mbold italic\e[0m plain\n'` - the first two lean right, descenders lean left, the last letter of a run isn't cut by the next cell
 - **A save key** (#58)

@@ -108,6 +108,9 @@ DLL_EXPORT int test_agent_claude(ITesting *t) {
     TR_ASSERT(t, prompt.find("Why is X here?") == 0);
     TR_ASSERT(t, prompt.find("/p/.goatedit/answers/1.md") != std::string::npos);
     TR_ASSERT(t, prompt.find("no other file") != std::string::npos);
+    TR_ASSERT(t, prompt.find("earlier questions and answers") != std::string::npos);
+    // The answer file's sentence ends the prompt - on one line
+    TR_ASSERT(t, prompt.find('\n', prompt.find("Write your answer")) == std::string::npos);
     return kTR_Pass;
 }
 

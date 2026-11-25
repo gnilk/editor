@@ -286,7 +286,7 @@ answer file, so the question agent becomes, for Claude Code (2.1.331, from `clau
 
     claude --permission-mode dontAsk --allowedTools "Read Grep Glob Edit(.goatedit/agent_qa/a_*)" --session-id <uuid>
 
-`dontAsk` denies anything not allowed up front - no permission prompts the user must answer in the tab, no Bash, no edits
+`dontAsk` denies anything not allowed up front - no permission prompts the user must answer in the tab, no edits
 but `a_*` files in `agent_qa/` - it can't change a question. (`Edit(...)` rules cover Write in Claude Code's rule syntax - to confirm.) `--session-id` is the editor
 choosing the id, so the question file and the shadow trailers (§5.2) know it without reading transcripts.
 `AgentIntegration::QuestionAgentCommand` gains the `agent_qa` folder and the session id. **This needs one real start to
@@ -409,6 +409,18 @@ can be asked again - and, later, a kind can be "always" (§3.3).
    - The prompt asks the agent to judge what the diff shows: new dependencies between folders, ownership changes, a rule
      from `CLAUDE.md` broken (the `Views/` -> `Modals/` include `typediff.py` caught) - and to say what it's unsure of.
 
+**Sonnet and Opus, the same two questions (11-25, the user's project; one run each, Opus had Sonnet's old `structure`
+answer in its context - not a clean comparison).** Without the 54k start-up: `why` 4k / 38k cache write, 1.5k / 5.8k out;
+`structure` 7k / 111k, 3.1k / 11.2k. `why`: Sonnet's answer was right, Opus found the reason in the docs too. `structure`:
+Sonnet was shallow and got an ownership wrong; Opus held where checked, but missed a bug it had found the evening before -
+one answer is not a review. What it led to:
+- `why.py` says **where the line's text was first committed** (`git log -S`, any file but `.md`) - a copied line's blame
+  stops at the copy. Not for short lines or ones in more than 20 files; 10 s at most.
+- The type-diff also scans **untracked files a tracked build file names** (path from the root or the build file's folder,
+  comments left out) and the header next to one: the tracked-only rule had hidden four files of that change.
+- The prompt keeps the agent out of `agent_qa/`: Opus read an earlier answer.
+- A model per template was left out: switching starts a new conversation, 54k each time.
+
 **As built:** `AgentQuestionTemplate` (`src/Core/Agent/`) reads, lists and fills; `AgentAsk` runs the tools
 (`Process`, one after the other, `EA: gathering`) and shares the consent with free text. A template is used when the first
 word names one **and** the rest fit its `args` - `.ask why is the sky blue` stays a free question. Braces that aren't a
@@ -436,6 +448,10 @@ calls, 180k cache write) - much of it untracked reference code that read as ~20 
   into it: Claude Code 2.1.331 saves that as the user's default for new sessions, and asks "Yes, switch / No, go back"
   when there is a conversation to re-read uncached - which the next question's Enter would answer. Refused while a
   question is out. The consent names the model.
+- **Bash is not off, it is filtered** (seen 11-25, 2.1.331; this doc said "no Bash"): Claude Code lets through commands it
+  takes for read-only (`git show` / `diff` / `blame`, `cat`, `grep`, `sed -n`) and refuses the rest, some reading ones too
+  (`git status`). Kept - `why` uses `git show`; no write but the answer files was seen. An allow rule in the user's own
+  Claude settings may widen it - not tried. The prompt says so: one command per call, refused means Read / Grep.
 - **Unsaved changes are said in the consent** - `Read as last saved - unsaved: a.cpp, ...` - for every question: the tools
   and the agent read the files. Autosave (on by default, 1 s) makes it rare.
 

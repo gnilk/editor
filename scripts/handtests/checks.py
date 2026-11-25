@@ -822,7 +822,7 @@ def editor_agent_template(n):
         n('─' in lines[row('[S]end') + 1], 'a rule between the choices and the prompt')
         g.send(b's', 0.1)
         # While it answers the status line moves: the dot sweeping, the seconds
-        deadline, seen = time.time() + 4, ''
+        deadline, seen = time.time() + 12, ''      # the agent is started first
         while time.time() < deadline and not seen:
             seen = next((l for l in g.screen.lines() if 'EA:' in l and '●' in l and 'answering' in l), '')
             g.pump(0.1)
@@ -860,6 +860,55 @@ def editor_agent_template(n):
         n(g.quit(), 'quits')
     finally:
         g.kill()
+
+
+@check('#78 step 3 the tools: why.py finds where a copied line came from; typediff.py scans what the build names')
+def agent_tools(n):
+    sb, work = sandbox('agent_tools')
+    tools = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'Assets', 'Resources', 'Tools')
+
+    def tool(name, *args):
+        run = subprocess.run([sys.executable, os.path.join(tools, name), *args], capture_output=True, text=True, cwd=work)
+        return run.stdout + run.stderr
+
+    def commit(message, *paths):
+        git(work, 'add', *paths)
+        git(work, 'commit', '-q', '-m', message)
+
+    line = 'int scaled = value * kSubPixelOne;'
+    write(os.path.join(work, 'CMakeLists.txt'), 'add_executable(app old.c)\n')
+    write(os.path.join(work, 'notes.md'), f'Plan: `{line}`\n')
+    git(work, 'init', '-q', '-b', 'main')
+    commit('plan', 'CMakeLists.txt', 'notes.md')
+    write(os.path.join(work, 'old.c'), f'{line}\n')
+    commit('the first draft\n\nFour bits are enough.', 'old.c')
+    write(os.path.join(work, 'copy.c'), f'{line}\nreturn;\nint unrelated_and_new_here = 1;\n')
+    commit('a copy of it', 'copy.c')
+    out = tool('why.py', 'copy.c:1')
+    n('a copy of it' in out, 'why: the blamed commit')
+    n('origin  the same text was first committed in' in out and 'the first draft' in out and '| Four bits are enough.' in out,
+      'why: where the text was first committed, and why - not the .md that quotes it')
+    n('there in old.c' in out, '... in which file')
+    n('origin' not in tool('why.py', 'copy.c:2'), 'a short line: not searched')
+    n('origin  this commit' in tool('why.py', 'copy.c:3'), "a line that is new in its commit: said so")
+    for i in range(21):
+        write(os.path.join(work, 'many', f'm{i}.c'), f'{line}\n')
+    commit('everywhere', 'many')
+    n('origin  not searched: the same line is in 23 files' in tool('why.py', 'copy.c:1'), 'a line in many files: not searched')
+
+    # Untracked: named in a tracked build file (root, its own folder, a variable), the header next to one, a comment only, none
+    write(os.path.join(work, 'CMakeLists.txt'), 'add_executable(app old.c src/panel.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/var.cpp)\n'
+                                                '# src/commented.cpp is not built\nadd_subdirectory(sub)\n')
+    write(os.path.join(work, 'sub', 'CMakeLists.txt'), 'add_library(sub inner.cpp)\n')
+    git(work, 'add', 'sub/CMakeLists.txt')
+    for path in ('src/panel.cpp', 'src/panel.h', 'src/var.cpp', 'src/commented.cpp', 'sub/inner.cpp', 'inner.cpp', 'ref/panel.cpp'):
+        write(os.path.join(work, path), 'struct S_' + path.replace('/', '_').replace('.', '_') + ' { int x; };\n')
+    out = tool('typediff.py', '--goatedit', Goat.EXE, 'HEAD')
+    for path in ('src/panel.cpp', 'src/panel.h', 'src/var.cpp', 'sub/inner.cpp'):
+        n('S_' + path.replace('/', '_').replace('.', '_') in out, f'scanned: {path}')
+    for path in ('src/commented.cpp', 'inner.cpp', 'ref/panel.cpp'):
+        n(re.search(r'S_' + path.replace('/', '_').replace('.', '_') + r'\b', out) is None, f'not scanned: {path}')
+    n('untracked but named in a build file' in out and 'not scanned: 3 untracked' in out, f'and says which is which\n{out[:900]}')
 
 
 # --- The real agent: opt-in only (--real-agent), never in the default run - each question costs the user's tokens ---

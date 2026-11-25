@@ -8,8 +8,9 @@ tools:
 Why is line {line} of `{file}` here?
 
 This is what the repository records about it - the commit that last changed
-the line, its message, the merge that brought it in, the #N it names and the
-docs that mention those numbers or the line's rarer names:
+the line, its message, the merge that brought it in, where the same text was
+first committed when that is another commit (the line may be a copy), the #N
+it names and the docs that mention those numbers or the line's rarer names:
 
 {tool:chain}
 

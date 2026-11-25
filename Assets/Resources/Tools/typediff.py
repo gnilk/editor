@@ -6,15 +6,19 @@
 # Usage: typediff.py (--goatedit <exe> | --bench <gedit-bench>) [<revision>]
 #   revision: a git revision to compare from (a branch, a tag, a hash); default the branch point - 'git merge-base HEAD
 #   <trunk>', the closest of main / master / dev / develop.
-#   now: the work tree as saved - the files git tracks ('git add' is enough). Untracked C/C++ files are named, not scanned:
-#   code lying around for reference would read as part of the change.
+#   now: the work tree as saved - the files git tracks ('git add' is enough), and the untracked ones a tracked build file
+#   names (with the header next to one it names). Other untracked C/C++ files are named, not scanned: code lying around
+#   for reference would read as part of the change.
 #   --merges <m> [<m> ...]: the files of these merges (each M^1..M) instead, at --base and --head (the old probe's mode)
-import argparse, os, subprocess, sys, tempfile
+import argparse, os, re, subprocess, sys, tempfile
 
 EDGE_KINDS = ("inherits", "holds", "includes", "using")
 TYPE_KINDS = {"class", "struct", "union", "enum"}
 CODE_EXT = (".h", ".hpp", ".cpp", ".cc", ".c")
 MAX_FILES_LISTED = 40
+HEADER_EXT = (".h", ".hpp")
+# Build files, all with '#' comments
+BUILD_FILES = ("CMakeLists.txt", "*.cmake", "Makefile", "makefile", "GNUmakefile", "*.mk", "meson.build")
 MAX_UNTRACKED_LISTED = 20
 WORK_TREE = None        # 'rev' for the files as they are on disk
 
@@ -54,6 +58,27 @@ def untracked_files():
 # From a '-z' listing: names with anything but ASCII come as they are, not quoted
 def code_files(listing):
     return sorted({f for f in listing.split("\0") if f.endswith(CODE_EXT)})
+
+# The untracked files that are part of the build: a tracked build file names them - by their path from the project root
+# or from its own folder, not in a comment - or they are the header next to one it names
+def files_the_build_names(untracked):
+    named = set()
+    for build in git("ls-files", "-z", "--", *[f":(glob)**/{name}" for name in BUILD_FILES]).split("\0"):
+        if not build or not os.path.isfile(build):
+            continue
+        lines = open(build, encoding="utf-8", errors="replace").read().splitlines()
+        words = set(re.split(r"[\s\"'();:]+", "\n".join(line.split("#", 1)[0] for line in lines)))
+        # '${CMAKE_CURRENT_SOURCE_DIR}/a.cpp', '$(SRC)/a.cpp', './a.cpp' - what follows is the path
+        paths = {re.sub(r"^(\$\{\w+\}|\$|\w*\)|\.)?/", "", word) for word in words}
+        folder = os.path.dirname(build)
+        for path in untracked:
+            # A bare name is one in the build file's own folder, never the root's
+            is_from_root = "/" in path and path in paths
+            if is_from_root or os.path.relpath(path, folder or ".") in paths:
+                named.add(path)
+    stems = {os.path.splitext(path)[0] for path in named}
+    named.update(path for path in untracked if path.endswith(HEADER_EXT) and os.path.splitext(path)[0] in stems)
+    return sorted(named)
 
 # By name; by folder when there are many
 def print_untracked(files):
@@ -161,6 +186,9 @@ def main():
     else:
         base, how = (a.base, a.base) if a.base else default_base()
         head, files = WORK_TREE, changed_files(base)
+        untracked = untracked_files()
+        in_build = files_the_build_names(untracked)
+        files = sorted({*files, *in_build})
         what = f"{len(files)} C/C++ files changed"
         title = f"{git('rev-parse', '--short', base).strip()} ({how})..the work tree"
     with tempfile.TemporaryDirectory() as work:
@@ -172,7 +200,11 @@ def main():
         for path in files:
             print(f"  {path}")
     if head is WORK_TREE:
-        print_untracked(untracked_files())
+        if in_build:
+            print(f"of these, untracked but named in a build file - not committed with the rest until 'git add': {len(in_build)}")
+            for path in in_build:
+                print(f"  {path}")
+        print_untracked([path for path in untracked if path not in in_build])
     # one name per function: an out-of-line definition 'function X::f' is the method 'gedit::X::f' declared in the class
     def norm(symbols):
         methods = {n.split("::", 1)[1] for k, n, _ in symbols if k == "method" and "::" in n}

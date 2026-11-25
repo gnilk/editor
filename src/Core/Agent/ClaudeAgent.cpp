@@ -118,7 +118,9 @@ std::optional<std::filesystem::path> ClaudeAgent::TranscriptDir(const std::files
 
 std::string ClaudeAgent::PromptWithAnswerFile(const std::string &question, const std::filesystem::path &answerFile) const {
     return question + "\n\nWrite your answer, as Markdown, to the file " + answerFile.string() +
-           " - create or replace it - and change no other file.";
+           " - create or replace it - and change no other file. Don't read the other files in its folder: earlier "
+           "questions and answers, stale or wrong by now. Shell commands here are limited to ones that only read; one "
+           "per call, and when one is refused use Read and Grep instead of another form of it.";
 }
 
 std::string ClaudeAgent::ProjectFolderName(const std::filesystem::path &root) {

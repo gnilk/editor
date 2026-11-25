@@ -1,6 +1,7 @@
 # Windows port
 
-Status: **analysis, not started** (2026-11-24; 2026-11-25: there is a Windows machine - §1, §6, §7, and a ConPTY probe first). A survey of the tree (`feature/editor-agent-ask`, 73634422) and the
+Status: **analysis, not started** (2026-11-24; 2026-11-25: there is a Windows machine - §1, §6, §7; 2026-11-26: the ConPTY
+probe's answers - §4.5.1). A survey of the tree (`feature/editor-agent-ask`, 73634422) and the
 user's decisions. Hitlist #81.
 
 The short version: the core is portable already - TextBuffer, the languages, the code index, gvt, the views and Duktape
@@ -148,6 +149,37 @@ differ from a unix pty:
   `/proc`). Windows can't, so both come from **the shell telling us** - OSC 7 (cwd) and OSC 133 (prompt / command / done)
   from the prompt. That is better on unix too.
 
+#### 4.5.1 What the probe found (2026-11-25 / 26)
+
+The laptop: Windows 11 26200.9974, the pseudo console built into Windows, Git for Windows 2.32 (bash 4.4), Windows
+PowerShell 5.1, cmd. Run at the laptop and over SSH; built with clang-cl 22.1.3 and cl. Raw bytes kept by the user.
+
+| What | Answer | For the editor |
+|---|---|---|
+| OSC 133 A / B / C / D;n, OSC 7 | **Come through, in their place** - from a program, Git Bash, PowerShell (a prompt function + a PSReadLine Enter handler) and cmd (`PROMPT`, no D) | The plan holds: the marks and the cwd from the shell |
+| A build's output, 3000 lines at once | All, whole, in order; 'done' after the last line | Build messages can read the bytes |
+| A line wider than the console | Stays one line | - |
+| **Blank lines** | **Arrive as a jump to a fixed row** (`ESC[27;1H`), not line breaks - from a program, Git Bash and PowerShell, while the screen has room below. (cmd's `echo.` writes a space, so it shows as a line.) | The message reader must take a row change as a line break - or read rows from the grid |
+| **Moves to a fixed row** | PowerShell's line editor and cmd use them in ordinary use; Git Bash only for blank lines | See below - the editor's own text |
+| Other sequences | Kept, but not in place: they come before the frame's text. Synchronized output (?2026) arrives as on-off before the text it should wrap, so it does nothing | Nothing to build on ?2026 |
+| Resize, leaving the alternate screen | The visible screen is sent again | Text read twice: build messages must not count a line twice (they already merge equal ones) |
+| The program ends | The output pipe stays open | #82's "the shell ended" waits on the process handle, not the pipe |
+| Ctrl+C (0x03) | Works - **if Ctrl+C is on in the process that starts the shell.** Over SSH it is inherited off | `SetConsoleCtrlHandler(nullptr, FALSE)` before starting a shell |
+| At start | `ESC[?9001h` (win32 input mode - asked for, ignore it: VT keys work), `ESC[2J ESC[H`, the title = the program's path | The start clears the visible screen: the banner and restored scrollback belong above it; the tab name shouldn't be the title |
+| OSC 7 | Git Bash / PowerShell: `file://host/C:/x`; cmd: `file://localhost/C:\x` | Take both slashes |
+| Mouse reports | Not shown - the test program didn't ask the Windows way | Unknown |
+
+**The editor's own text in the grid.** On unix the editor writes into the terminal's grid itself: dot-command output above
+the prompt, the start-up banner, #82's notice, the echo of an interrupted line. A shell there only moves relative to where
+it is, so that is safe. The pseudo console places text by row on a screen of its own, which knows nothing of what the editor
+added - after that, its rows are not the grid's rows. **Open, for phase 4:** on Windows keep the grid exactly the console's
+(the editor's text goes elsewhere - a line of the panel's own, the status line, the Messages tab), or keep track of the
+offset. Git Bash for ordinary commands moved only for blank lines; PowerShell's line editor moves on every key.
+
+**Still to try:** Microsoft's newer `conpty.dll` (NuGet `Microsoft.Windows.Console.ConPTY`, `--conpty`) - said to pass a
+program's output through more directly, which may end the blank-line jumps and the reordering; and the probe on a machine
+of the target user (§8).
+
 **Shell - decided: bash by default, a setting** (`windows: terminal: shell`):
 
 | Shell | What works |
@@ -199,12 +231,14 @@ same shape as `MacOSSystemFonts` (CoreText).
 
 Until 2026-11-25 the plan was to port blind: cross-compile, copy, look. With the laptop (§1) the build is native.
 
-- **Toolchain: clang-cl first** - the same clang front end as the Mac build, so fewer compiler surprises, with Microsoft's
+- **Toolchain: clang-cl first** (VS 2026's, 22.1.3 - an older standalone LLVM 14 is first on the laptop's `PATH`, and VS's
+  library refuses it: name VS's `clang-cl` in the preset, or remove that LLVM) - the same clang front end as the Mac build, so fewer compiler surprises, with Microsoft's
   headers, library and debugger. **MSVC (`cl`) second**, for what it warns about. One Visual Studio is enough (2026), with
   *Desktop development with C++* and *C++ Clang tools for Windows*; its CMake and Ninja. Also: Git for Windows, Python with
   the `py` launcher.
-- **The loop:** OpenSSH server on the laptop, so a Mac or Linux box can push a branch, build and run the unit tests there -
-  to be set up. The GUI by hand, or the session open on the laptop.
+- **The loop:** OpenSSH server on the laptop (set up 2026-11-25, key login): a Mac or Linux box copies the source, builds and
+  runs there. Build from a `.bat` that calls `vcvars64.bat` - over SSH the shell is cmd, which expands `%VAR%` before
+  `vcvars64` has set it. Ctrl+C is off in processes started over SSH (§4.5.1). The GUI by hand, or the session open on the laptop.
 - **Unit tests and the probe on real Windows** - Wine is no longer needed for them.
 - **AltGr (§4.1), ConPTY (§4.5), fonts and per-monitor DPI** can be tried from the first build. The laptop's screen may well
   run scaled, which would be the DPI test; not checked yet.
@@ -218,7 +252,7 @@ Until 2026-11-25 the plan was to port blind: cross-compile, copy, look. With the
 
 | Phase | What | Size |
 |---|---|---|
-| - | **The ConPTY probe on the laptop** (§4.5), before anything is ported. A bad answer changes phase 4, or brings a `conpty.dll` of our own | an hour |
+| - | **The ConPTY probe on the laptop** (§4.5) - **done 2026-11-26** (§4.5.1): the marks work; blank lines and the editor's own text in the grid are phase 4's problems. Left: the newer `conpty.dll` | - |
 | 0 | **The platform layer (§2) on Linux + macOS**, behaviour unchanged, tests green. After `feature/editor-agent-ask` is run on Linux and merged to `dev` - it changes the same files (`Shell`, the agent). Line endings kept (§4.2) - useful on unix too | 2-3 days |
 | 1 | **The Windows build:** the presets (clang-cl, MSVC), the CMake branch, deps, compile fixes, the UTF-8 / DPI manifest, `UserDirs` for Windows (§3), the `windows:` config section; stubs (no folder monitor, the terminal panel says "not yet"). Goal: a window, editing, the config, the unit tests on the laptop | 2-4 days |
 | 2 | **Files and keys:** AltGr (§4.1), path case and drive letters (§4.4), MSVC build messages, the projects setting (§3.2). Tried on the laptop's keyboard | 2-3 days |
@@ -232,8 +266,9 @@ follows.
 ## 8. Open
 
 - The Windows 10 floor - the target user's machines (1903 is the technical minimum).
-- The laptop's Windows version and build; the OpenSSH server on it (installing it through Settings hung, 2026-11-25).
+- Whether the editor keeps the grid exactly the pseudo console's, or tracks an offset for its own text (§4.5.1).
+- Microsoft's newer `conpty.dll` - shipped with the editor, if it ends the blank-line jumps (§4.5.1).
 - clang-cl or MSVC for the shipped build - try clang-cl first.
-- Whether OSC 133 survives ConPTY on the versions that matter (§4.5).
+- Whether OSC 133 survives ConPTY on the target user's Windows (§4.5.1: it does on 11 26200).
 - What Claude Code on Windows names its transcript folders, and how `~/.claude.json` spells the trusted paths (§4.4).
 - `project_folders` as the key name (§3.2).

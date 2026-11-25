@@ -37,6 +37,10 @@ std::string EditorAPI::StartEditorAgent() {
     return Editor::Instance().StartEditorAgent();
 }
 
+std::vector<std::string> EditorAPI::SetEditorAgentModel(const std::string &name) {
+    return Editor::Instance().SetEditorAgentModel(name);
+}
+
 std::vector<std::string> EditorAPI::AskEditorAgent(const std::string &text) {
     return Editor::Instance().AskEditorAgent(text);
 }

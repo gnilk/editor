@@ -105,6 +105,18 @@ std::string AgentIntegrations::EditorAgentBanner(const AgentIntegration &agent, 
            ShellCommandLine(command) + " | closing this tab stops it";
 }
 
+bool AgentIntegrations::IsModelName(const std::string &name) {
+    if (name.empty() || (name.front() == '-')) {
+        return false;
+    }
+    for (auto ch : name) {
+        if (!std::isalnum((unsigned char)ch) && (std::string("_./:@[]-").find(ch) == std::string::npos)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 std::string AgentIntegrations::NewSessionId() {
     std::random_device device;
     std::mt19937_64 generator(((uint64_t)device() << 32) ^ device());

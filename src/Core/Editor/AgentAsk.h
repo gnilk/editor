@@ -13,7 +13,9 @@
 
 #include <chrono>
 #include <deque>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "Core/Agent/AgentQuestion.h"
 #include "Core/Agent/AgentQuestionTemplate.h"
@@ -33,6 +35,14 @@ namespace gedit {
         // '.agent start': the Editor Agent's tab - shown when it runs already. A line for the user.
         std::string StartAgent();
 
+        // '.agent model': the Editor Agent's model, '' says which it is, 'default' goes back to main.ai_model. For this
+        // session, nothing is written. One that runs is started over with it - a new conversation: typed into it,
+        // Claude's '/model' also becomes the user's own default, and asks first when there is a conversation to re-read.
+        // Lines for the user.
+        std::vector<std::string> SetModel(const std::string &name);
+        // '.agent model's, else main.ai_model; empty is the agent's own default
+        std::string Model() const;
+
         // 'EA: answering' - empty while there is no Editor Agent and no question (as of the last Tick)
         const std::u32string &StatusText() const {
             return lastStatus;
@@ -47,6 +57,8 @@ namespace gedit {
         static std::u32string BusyIndicator(std::chrono::milliseconds elapsed);
         // 'answering 12s', '2m 05s'
         static std::u32string Elapsed(std::chrono::milliseconds elapsed);
+        // 'unsaved: a.cpp, b.cpp, c.cpp and 2 more' - empty for none
+        static std::string UnsavedSummary(const std::vector<std::string> &files);
 
     public:
         static constexpr std::chrono::milliseconds TICK = std::chrono::milliseconds(250);
@@ -80,6 +92,11 @@ namespace gedit {
         bool WriteQuestionFile(const AgentQuestion &question, std::string &outError);
         // The tab with the agent's command for a new conversation - nullptr when there is no panel or command
         TerminalView *OpenAgentTab();
+        // The running agent started over with the model now set; its tab stays shown when it was
+        void RestartAgent();
+        static std::string ModelName(const std::string &model);
+        // The open files under the project root (not in .goatedit) with unsaved changes, relative to it
+        static std::vector<std::string> UnsavedFiles();
         void Send(TerminalView &agentView, const AgentQuestion &question);
         void OnAnswered(const AgentQuestion &question, const std::string &usage);
         uintmax_t TranscriptSize() const;
@@ -99,6 +116,9 @@ namespace gedit {
         // The Editor Agent this session started, and its conversation's id
         TerminalView *startedView = nullptr;
         std::string sessionId;
+        // What it was started with; '.agent model's for the next start (nullopt: main.ai_model)
+        std::string startedModel;
+        std::optional<std::string> sessionModel;
         std::string banner;
         bool isShowingWaitLine = false;
         int numberThisSecond = 0;

@@ -682,7 +682,7 @@ std::vector<std::string> Editor::DescribeAgent() {
     auto root = GetProjectRootPath();
     lines.push_back("Project:        " + root.string());
     lines.push_back("Working agent:  " + join(agent->WorkingAgentCommand(root)));
-    lines.push_back("Question agent: " + join(agent->QuestionAgentCommand(root, "<session id>", Config::Instance()["main"].GetStr("ai_model", ""))) + " (reads, writes only its answers)");
+    lines.push_back("Question agent: " + join(agent->QuestionAgentCommand(root, "<session id>", agentAsk.Model())) + " (reads, writes only its answers)");
     auto transcripts = agent->TranscriptDir(root);
     if (transcripts.has_value()) {
         std::error_code ec;
@@ -694,6 +694,10 @@ std::vector<std::string> Editor::DescribeAgent() {
 
 std::string Editor::StartEditorAgent() {
     return agentAsk.StartAgent();
+}
+
+std::vector<std::string> Editor::SetEditorAgentModel(const std::string &name) {
+    return agentAsk.SetModel(name);
 }
 
 std::vector<std::string> Editor::AskEditorAgent(const std::string &text) {
@@ -720,6 +724,24 @@ TerminalView *Editor::AddEditorAgentTab(const ConfigNode &settings, const std::s
     }
     TriggerUIRedraw();
     return view;
+}
+
+bool Editor::RemoveEditorAgentTab() {
+    bool wasShown = false;
+    for (auto *panelView : GetPanelViews()) {
+        wasShown = panelView->RemoveEditorAgent() || wasShown;
+    }
+    TriggerUIRedraw();
+    return wasShown;
+}
+
+void Editor::RaiseEditorAgentTab() {
+    for (auto *panelView : GetPanelViews()) {
+        if (auto idxTab = panelView->IndexOf(panelView->EditorAgent())) {
+            panelView->SetActiveTab(idxTab.value());
+        }
+    }
+    TriggerUIRedraw();
 }
 
 void Editor::ShowEditorAgentTab() {

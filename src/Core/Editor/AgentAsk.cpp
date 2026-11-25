@@ -2,6 +2,7 @@
 // See AgentAsk.h
 //
 
+#include <algorithm>
 #include <ctime>
 #include <fstream>
 #include <sstream>
@@ -303,11 +304,44 @@ void AgentAsk::ShowConsent(const AgentQuestion::Ref &agentQuestion) {
 // To whom, and where it is kept - above Send / Cancel, so a prompt taller than the screen never hides them
 std::string AgentAsk::ConsentHeader(const AgentQuestion &question, bool willStart) const {
     auto agent = Editor::Instance().GetAgent();
-    std::string header = "To the Editor Agent (" + agent->DisplayName() + ", read-only)";
+    auto model = willStart ? Model() : startedModel;
+    std::string header = "To the Editor Agent (" + agent->DisplayName() + (model.empty() ? "" : ", " + model) + ", read-only)";
     header += willStart ? " - it is started first.\n" : ".\n";
+    // The tools and the agent read the files, not the buffers
+    if (auto unsaved = UnsavedSummary(UnsavedFiles()); !unsaved.empty()) {
+        header += "Read as last saved - " + unsaved + "\n";
+    }
     header += "Kept with its answer: .goatedit/agent_qa/" + question.QuestionFile().filename().string() + "\n";
     header += "What is typed into it, as is, is below the line.";
     return header;
+}
+
+std::vector<std::string> AgentAsk::UnsavedFiles() {
+    auto root = Editor::Instance().GetProjectRootPath();
+    std::vector<std::string> files;
+    for (auto &document : Editor::Instance().GetDocuments()) {
+        if (!document->IsModified() || document->GetPath().empty()) {
+            continue;
+        }
+        // An earlier answer being edited is not the project's
+        auto relative = document->GetPath().lexically_relative(root);
+        if (!relative.empty() && (relative.begin()->string() != "..") && (relative.begin()->string() != ".goatedit")) {
+            files.push_back(relative.string());
+        }
+    }
+    return files;
+}
+
+std::string AgentAsk::UnsavedSummary(const std::vector<std::string> &files) {
+    static constexpr size_t MAX_NAMED = 3;
+    std::string text;
+    for (size_t i = 0; i < std::min(files.size(), MAX_NAMED); i++) {
+        text += (text.empty() ? "unsaved: " : ", ") + files[i];
+    }
+    if (files.size() > MAX_NAMED) {
+        text += fmt::format(" and {} more", files.size() - MAX_NAMED);
+    }
+    return text;
 }
 
 // What will be typed, word for word - wrapped to fit the modal
@@ -410,8 +444,8 @@ std::string AgentAsk::StartAgent() {
 TerminalView *AgentAsk::OpenAgentTab() {
     auto agent = Editor::Instance().GetAgent();
     auto newSessionId = AgentIntegrations::NewSessionId();
-    auto command = agent->QuestionAgentCommand(Editor::Instance().GetProjectRootPath(), newSessionId,
-                                               Config::Instance()["main"].GetStr("ai_model", ""));
+    auto newModel = Model();
+    auto command = agent->QuestionAgentCommand(Editor::Instance().GetProjectRootPath(), newSessionId, newModel);
     if (command.empty()) {
         return nullptr;
     }
@@ -424,10 +458,78 @@ TerminalView *AgentAsk::OpenAgentTab() {
     }
     startedView = view;
     sessionId = newSessionId;
+    startedModel = newModel;
     banner = newBanner;
     isShowingWaitLine = false;
     ArmTimer();
     return view;
+}
+
+std::vector<std::string> AgentAsk::SetModel(const std::string &name) {
+    auto agent = Editor::Instance().GetAgent();
+    if (agent->Name() == NoAgent::NAME) {
+        return {"No agent set (main.ai_integration: none) - '.cfg set main.ai_integration claude' in your user config"};
+    }
+    bool isRunning = (Editor::Instance().GetEditorAgentView() != nullptr);
+    if (name.empty()) {
+        std::vector<std::string> lines;
+        lines.push_back("Editor Agent's model: " + ModelName(Model()) + (sessionModel.has_value() ? " (this session)" : " (main.ai_model)"));
+        if (isRunning && (startedModel != Model())) {
+            lines.push_back("The one running was started with: " + ModelName(startedModel));
+        }
+        return lines;
+    }
+    if (!AgentIntegrations::IsModelName(name)) {
+        return {"'" + name + "' is not a model's name - '.agent model sonnet', '.agent model default' (back to main.ai_model)"};
+    }
+    // Its answer would go with it
+    if (!questions.empty()) {
+        return {"Not switched - a question is out; again once it is answered"};
+    }
+    if (name == "default") {
+        sessionModel.reset();
+    } else {
+        sessionModel = name;
+    }
+    auto line = "Editor Agent's model: " + ModelName(Model()) + (sessionModel.has_value() ? " (this session)" : " (main.ai_model)");
+    if (!isRunning) {
+        return {line};
+    }
+    if (startedModel == Model()) {
+        return {line + " - it runs with it already"};
+    }
+    // Not under the command's feet: it may have been typed in the agent's own tab (its agent gone, the shell left)
+    RuntimeConfig::Instance().GetRootView().PostMessage([]() {
+        Editor::Instance().GetAgentAsk().RestartAgent();
+    });
+    return {line + " - started over, a new conversation"};
+}
+
+std::string AgentAsk::Model() const {
+    return sessionModel.has_value() ? sessionModel.value() : Config::Instance()["main"].GetStr("ai_model", "");
+}
+
+std::string AgentAsk::ModelName(const std::string &model) {
+    return model.empty() ? "the agent's default" : model;
+}
+
+void AgentAsk::RestartAgent() {
+    // Closed, or asked something, since
+    if ((Editor::Instance().GetEditorAgentView() == nullptr) || !questions.empty()) {
+        return;
+    }
+    if (auto blocker = Editor::Instance().GetAgent()->StartBlocker(Editor::Instance().GetProjectRootPath()); !blocker.empty()) {
+        Editor::Instance().ShowStatusMessage(UnicodeHelper::utf8to32("Not started over - " + blocker));
+        return;
+    }
+    bool wasShown = Editor::Instance().RemoveEditorAgentTab();
+    startedView = nullptr;
+    if (OpenAgentTab() == nullptr) {
+        Editor::Instance().ShowStatusMessage(U"The Editor Agent could not be started again");
+    } else if (wasShown) {
+        Editor::Instance().RaiseEditorAgentTab();
+    }
+    Tick();
 }
 
 void AgentAsk::Tick() {

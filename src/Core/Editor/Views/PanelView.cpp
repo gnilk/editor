@@ -165,6 +165,16 @@ TerminalView *PanelView::EditorAgent() {
     return nullptr;
 }
 
+bool PanelView::RemoveEditorAgent() {
+    auto idxTab = IndexOf(EditorAgent());
+    if (!idxTab.has_value()) {
+        return false;
+    }
+    bool wasShown = (ActiveTab() == idxTab);
+    RemovePanelTab(idxTab.value());
+    return wasShown;
+}
+
 bool PanelView::IsEditorAgentTab(size_t idxTab) {
     auto panelTab = PanelTabAt(idxTab);
     return (panelTab != nullptr) && panelTab->IsEditorAgent();

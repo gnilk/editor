@@ -21,6 +21,8 @@ namespace gedit {
         std::vector<std::string> GetAgentInfo();
         // Editor.StartEditorAgent() -> line - the Editor Agent's tab ('.agent start')
         std::string StartEditorAgent();
+        // Editor.SetEditorAgentModel(name) -> [lines] - '.agent model'; '' says which it is
+        std::vector<std::string> SetEditorAgentModel(std::string name);
         // Editor.AskEditorAgent(text) -> [lines] - '.ask'
         std::vector<std::string> AskEditorAgent(std::string text);
 

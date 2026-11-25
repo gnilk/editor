@@ -114,6 +114,8 @@ namespace gedit {
         // nullptr when it isn't in this panel
         TerminalView *EditorAgent();
         bool IsEditorAgentTab(size_t idxTab);
+        // Its tab goes, the agent with it - nothing is asked (CloseTab asks). True when it was the shown tab.
+        bool RemoveEditorAgent();
         // A new shell in a tab of its own, shown (and focused, when the panel has focus) - homed as the shown tab is
         void NewTerminal();
         // ... homed here

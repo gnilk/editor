@@ -257,6 +257,8 @@ namespace gedit {
         // read-only command - the user asked, so it may start. Shown and focused; when it runs already it is only shown.
         // A line for the user.
         std::string StartEditorAgent();
+        // '.agent model [name]' (§6.4): the Editor Agent's model for this session - lines for the user
+        std::vector<std::string> SetEditorAgentModel(const std::string &name);
         // '.ask <question>' (§6.3), '.ask <template> [args]' (§6.4), '.ask list': asks for consent, then puts it to the
         // Editor Agent - lines for the user
         std::vector<std::string> AskEditorAgent(const std::string &text);
@@ -268,6 +270,10 @@ namespace gedit {
         // A new Editor Agent tab in the bottom panel; shown and focused only when 'isShown' (a question doesn't pull
         // the user there). nullptr without a bottom panel.
         TerminalView *AddEditorAgentTab(const ConfigNode &settings, const std::string &banner, bool isShown);
+        // Its tab goes, the agent with it - nothing is asked. True when it was the shown tab.
+        bool RemoveEditorAgentTab();
+        // Its tab to front - the focus stays where it is
+        void RaiseEditorAgentTab();
         // Its tab to front, its panel focused
         void ShowEditorAgentTab();
         // The line under its tab row (TabbedView's info line)

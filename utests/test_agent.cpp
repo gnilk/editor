@@ -52,6 +52,9 @@ DLL_EXPORT int test_agent_template_folders(ITesting *t);
 DLL_EXPORT int test_agent_template_shipped(ITesting *t);
 DLL_EXPORT int test_agent_question_template_file(ITesting *t);
 DLL_EXPORT int test_agent_busy_indicator(ITesting *t);
+DLL_EXPORT int test_agent_model_name(ITesting *t);
+DLL_EXPORT int test_agent_model_none(ITesting *t);
+DLL_EXPORT int test_agent_unsaved_summary(ITesting *t);
 }
 
 DLL_EXPORT int test_agent(ITesting *t) {
@@ -650,5 +653,38 @@ DLL_EXPORT int test_agent_busy_indicator(ITesting *t) {
     TR_ASSERT(t, AgentAsk::Elapsed(12s) == U"12s");
     TR_ASSERT(t, AgentAsk::Elapsed(125s) == U"2m 05s");
     TR_ASSERT(t, AgentAsk::Elapsed(-5s) == U"0s");
+    return kTR_Pass;
+}
+
+// A model's name is one word that can't turn into an option or a second command
+DLL_EXPORT int test_agent_model_name(ITesting *t) {
+    for (auto name : {"sonnet", "claude-sonnet-5-5", "opus[1m]", "us.anthropic.claude-opus:0"}) {
+        TR_ASSERT(t, AgentIntegrations::IsModelName(name));
+    }
+    for (auto name : {"", "-p", "--model", "a b", "a;b", "a'b", "$(a)", "a\nb"}) {
+        TR_ASSERT(t, !AgentIntegrations::IsModelName(name));
+    }
+    return kTR_Pass;
+}
+
+// '.agent model' with 'none': there is no agent to pick one for, and none is picked
+DLL_EXPORT int test_agent_model_none(ITesting *t) {
+    if (Editor::Instance().GetAgent()->Name() != NoAgent::NAME) {
+        return kTR_Pass;
+    }
+    auto before = Editor::Instance().GetAgentAsk().Model();
+    auto lines = Editor::Instance().SetEditorAgentModel("sonnet");
+    TR_ASSERT(t, lines.size() == 1);
+    TR_ASSERT(t, lines.front().find("none") != std::string::npos);
+    TR_ASSERT(t, Editor::Instance().GetAgentAsk().Model() == before);
+    return kTR_Pass;
+}
+
+// The consent's line about unsaved files: a few by name, the rest counted
+DLL_EXPORT int test_agent_unsaved_summary(ITesting *t) {
+    TR_ASSERT(t, AgentAsk::UnsavedSummary({}).empty());
+    TR_ASSERT(t, AgentAsk::UnsavedSummary({"src/a.cpp"}) == "unsaved: src/a.cpp");
+    TR_ASSERT(t, AgentAsk::UnsavedSummary({"a", "b", "c"}) == "unsaved: a, b, c");
+    TR_ASSERT(t, AgentAsk::UnsavedSummary({"a", "b", "c", "d", "e"}) == "unsaved: a, b, c and 2 more");
     return kTR_Pass;
 }

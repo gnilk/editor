@@ -598,10 +598,12 @@ def agent_integration(n):
 @check('#78 Editor Agent: .agent start - its own tab at the bottom, fixed name, banner, not saved')
 def editor_agent(n):
     sb, work = sandbox('editor_agent')
+    args_file = os.path.join(sb, 'fake-claude-args')
     # A fake 'claude' - first on a PATH that can't reach the real one (agent calls cost money); sh, so no login
     # profile reorders the PATH. It goes full screen and clears it, as the real one does
     fake_bin = os.path.join(sb, 'bin')
     write(os.path.join(fake_bin, 'claude'), '#!/bin/sh\nprintf \'\\033[?1049h\\033[2J\\033[H\'\n'
+                                            f'echo "$*" >> \'{args_file}\'\n'
                                             'echo "fake-claude: $*"\nexec cat\n')
     os.chmod(os.path.join(fake_bin, 'claude'), 0o755)
     env = {'PATH': fake_bin + ':/usr/bin:/bin'}
@@ -629,6 +631,32 @@ def editor_agent(n):
         n(tab_row(g).count('Editor Agent') == 1, 'still one Editor Agent tab')
         g.send(alt('1'), 0.5)
         n(g.wait_text('runs already', 2), '... and says so')
+
+        # '.agent model': for this session - the running one is started over, in a new conversation
+        def agent_args():
+            return open(args_file).read().splitlines() if os.path.exists(args_file) else []
+        n(len(agent_args()) == 1 and '--model' not in agent_args()[0], f"first the agent's own model ({agent_args()})")
+        g.type('.agent model', wait=0.2)
+        g.send(ENTER, 0.8)
+        n(g.wait_text("Editor Agent's model: the agent's default", 2), '.agent model: which it is')
+        g.type('.agent model --print', wait=0.2)
+        g.send(ENTER, 0.8)
+        n(g.wait_text("is not a model's name", 2), 'an option is not a model')
+        g.type('.agent model sonnet', wait=0.2)
+        g.send(ENTER, 0.5)
+        n(g.wait_for(lambda g: len(agent_args()) == 2, 6), 'started over')
+        args = agent_args()
+        session = lambda line: line.split('--session-id ')[1].split()[0]
+        n(args[-1].endswith('--model sonnet'), f'... with --model sonnet ({args[-1]!r})')
+        n(session(args[0]) != session(args[-1]), '... in a new conversation')
+        n(tab_row(g).count('Editor Agent') == 1, f'still one Editor Agent tab ({tab_row(g)!r})')
+        n(g.wait_text('Editor Agent\'s model: sonnet (this session) - started over', 2), '... said in the shell, which keeps the focus')
+        g.type('.agent model sonnet', wait=0.2)
+        g.send(ENTER, 0.8)
+        n(g.wait_text('it runs with it already', 2) and len(agent_args()) == 2, 'the same again: nothing happens')
+        g.type('.agent model default', wait=0.2)
+        g.send(ENTER, 0.5)
+        n(g.wait_for(lambda g: len(agent_args()) == 3, 6) and '--model' not in agent_args()[-1], f'default: without it again ({agent_args()[-1]!r})')
         n(g.quit(), 'quits')
     finally:
         g.kill()
@@ -728,7 +756,7 @@ def fake_answering_claude(sb):
 def editor_agent_template(n):
     sb, work = sandbox('editor_agent_template')
     env = fake_answering_claude(sb)
-    user_config(sb, "main:\n  ai_integration: claude\n  ai_settle_ms: 500\nterminal:\n  shell: /bin/sh\n")
+    user_config(sb, "main:\n  ai_integration: claude\n  autosave_timeout_ms: 0\n  ai_settle_ms: 500\nterminal:\n  shell: /bin/sh\n")
     trust_claude(sb, work)
     # A repository with a reason on record: the commit names #42
     write(os.path.join(work, 'hello.c'), 'int main() {\n    return 0;\n}\n')
@@ -767,6 +795,18 @@ def editor_agent_template(n):
         n('why is the sky blue' in '\n'.join(g.screen.lines()), '... with the question as typed')
         g.send(b'c', 0.8)
 
+        # With unsaved changes the consent says the files are read as saved
+        g.send(alt('e'), 0.4)
+        g.type('x', wait=0.4)
+        g.send(alt('t'), 0.4)
+        g.type('.ask why', wait=0.2)
+        g.send(ENTER, 0.5)
+        n(g.wait_text('Read as last saved - unsaved: hello.c', 6), 'unsaved changes: said in the consent')
+        g.send(b'c', 0.8)
+        g.send(alt('e'), 0.4)
+        g.send(b'\x7f', 0.4)
+        g.send(alt('t'), 0.4)
+
         # 'why' on line 1 of hello.c: the chain gathered, shown in the modal, sent, answered
         g.type('.ask why', wait=0.2)
         g.send(ENTER, 0.5)
@@ -802,6 +842,16 @@ def editor_agent_template(n):
         text = '\n'.join(g.screen.lines())
         n('type-diff' in text and 'the work tree' in text, 'the type-diff against the branch point is in the prompt')
         n('types +1 -0' in text, f"... and it saw the new struct ({[l for l in g.screen.lines() if 'types' in l]})")
+        g.send(b'c', 0.8)
+        # An untracked file is named, not scanned - it may be no part of the change
+        write(os.path.join(work, 'reference.h'), 'struct Borrowed { int times; };\n')
+        g.type('.ask structure', wait=0.2)
+        g.send(ENTER, 0.5)
+        n(g.wait_text('To the Editor Agent', 8), "'.ask structure' with an untracked file: the modal")
+        text = '\n'.join(g.screen.lines())
+        n('not scanned: 1 untracked' in text and 'reference.h' in text, '... names it')
+        n('types +1 -0' in text and 'Borrowed' not in text, '... and leaves its types out')
+        n('Read as last saved' not in text, 'nothing unsaved: not a word about it')
         g.send(b'c', 0.8)
         # A type name where a revision goes: said plainly, not a traceback
         g.type('.ask structure Greeter', wait=0.2)

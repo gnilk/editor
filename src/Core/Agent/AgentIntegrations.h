@@ -37,6 +37,8 @@ namespace gedit {
         // The line at the top of the tab: whose agent this is, what it runs, how it ends - most important first (a
         // narrow panel cuts the end)
         static std::string EditorAgentBanner(const AgentIntegration &agent, const std::vector<std::string> &command);
+        // Something that can be a model's name ('sonnet', 'claude-sonnet-5-5', 'opus[1m]') - one word, not an option
+        static bool IsModelName(const std::string &name);
         // A random (version 4) UUID - the id the editor gives the Editor Agent's conversation (§5.2, §6.3)
         static std::string NewSessionId();
     };

@@ -4,9 +4,10 @@
 # (agent-integration.md §6.4, the 'structure' question; the probe is agentic-questions.md §3.1).
 # Shipped with GoatEdit (Tools/); run in the project root.
 # Usage: typediff.py (--goatedit <exe> | --bench <gedit-bench>) [<revision>]
-#   revision: a git revision to compare from (a branch, a tag, a hash); default the branch point - 'git merge-base HEAD <trunk>', the closest of main / master / dev /
-#   develop.
-#   now: the work tree as saved (untracked files included).
+#   revision: a git revision to compare from (a branch, a tag, a hash); default the branch point - 'git merge-base HEAD
+#   <trunk>', the closest of main / master / dev / develop.
+#   now: the work tree as saved - the files git tracks ('git add' is enough). Untracked C/C++ files are named, not scanned:
+#   code lying around for reference would read as part of the change.
 #   --merges <m> [<m> ...]: the files of these merges (each M^1..M) instead, at --base and --head (the old probe's mode)
 import argparse, os, subprocess, sys, tempfile
 
@@ -14,6 +15,7 @@ EDGE_KINDS = ("inherits", "holds", "includes", "using")
 TYPE_KINDS = {"class", "struct", "union", "enum"}
 CODE_EXT = (".h", ".hpp", ".cpp", ".cc", ".c")
 MAX_FILES_LISTED = 40
+MAX_UNTRACKED_LISTED = 20
 WORK_TREE = None        # 'rev' for the files as they are on disk
 
 def git(*args):
@@ -43,9 +45,32 @@ def default_base():
     return best[1], f"the branch point with {best[2]}"
 
 def changed_files(base):
-    files = git("diff", "--name-only", base, "--").splitlines()
-    files += git("ls-files", "--others", "--exclude-standard").splitlines()
-    return sorted({f for f in files if f.endswith(CODE_EXT)})
+    # --relative: as 'git ls-files' has them, from this folder - a project root inside a larger repository
+    return code_files(git("diff", "--name-only", "--relative", "-z", base, "--"))
+
+def untracked_files():
+    return code_files(git("ls-files", "--others", "--exclude-standard", "-z"))
+
+# From a '-z' listing: names with anything but ASCII come as they are, not quoted
+def code_files(listing):
+    return sorted({f for f in listing.split("\0") if f.endswith(CODE_EXT)})
+
+# By name; by folder when there are many
+def print_untracked(files):
+    if not files:
+        return
+    print(f"not scanned: {len(files)} untracked C/C++ files ('git add' one to have it read as part of the change)")
+    rows = files
+    if len(files) > MAX_UNTRACKED_LISTED:
+        counts = {}
+        for path in files:
+            folder = os.path.dirname(path) or "."
+            counts[folder] = counts.get(folder, 0) + 1
+        rows = [f"{folder}/ ({count})" for folder, count in sorted(counts.items())]
+    for row in rows[:MAX_UNTRACKED_LISTED]:
+        print(f"  {row}")
+    if len(rows) > MAX_UNTRACKED_LISTED:
+        print(f"  ... and {len(rows) - MAX_UNTRACKED_LISTED} more folders")
 
 def merge_files(merges):
     files = set()
@@ -68,7 +93,7 @@ def dump(a, rev, files, workdir):
             text = open(path, encoding="utf-8", errors="replace").read()
         else:
             try:
-                text = git("show", f"{rev}:{path}")
+                text = git("show", f"{rev}:./{path}")
             except subprocess.CalledProcessError:
                 continue                                # not in this revision
         dst = os.path.join(root, path)
@@ -146,6 +171,8 @@ def main():
     if len(files) <= MAX_FILES_LISTED:
         for path in files:
             print(f"  {path}")
+    if head is WORK_TREE:
+        print_untracked(untracked_files())
     # one name per function: an out-of-line definition 'function X::f' is the method 'gedit::X::f' declared in the class
     def norm(symbols):
         methods = {n.split("::", 1)[1] for k, n, _ in symbols if k == "method" and "::" in n}
@@ -165,13 +192,14 @@ def main():
     section("folder includes removed (project headers)", mod(be - he))
     section("types added", names(TYPE_KINDS, hnames - bnames))
     section("types removed", names(TYPE_KINDS, bnames - hnames))
-    section("functions / methods added", names({"method", "function"}, hnames - bnames))
-    section("functions / methods removed", names({"method", "function"}, bnames - hnames))
-    section("members added", names({"member"}, hnames - bnames))
-    section("members removed", names({"member"}, bnames - hnames))
     btypes = {(k, n): t for k, n, t in bs if k == "member"}
     changed = {f"{n}: {btypes[(k, n)]} -> {t}" for k, n, t in hs if k == "member" and (k, n) in btypes and btypes[(k, n)] != t}
     section("members whose type changed", changed)
+    section("members added", names({"member"}, hnames - bnames))
+    section("members removed", names({"member"}, bnames - hnames))
+    # Last: the longest lists and the least telling - a long output is cut at its end
+    section("functions / methods added", names({"method", "function"}, hnames - bnames))
+    section("functions / methods removed", names({"method", "function"}, bnames - hnames))
 
 
 if __name__ == "__main__":

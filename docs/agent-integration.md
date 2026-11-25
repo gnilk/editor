@@ -400,7 +400,7 @@ can be asked again - and, later, a kind can be "always" (§3.3).
    HEAD: here `main` lags far behind `dev`, and its branch point dragged in 141 files of dev's work - changed while
    building); `.ask structure <revision>` picks another; a word that isn't one (a type name) is said so plainly. The tool works the default out itself - an empty `{revision}`
    is dropped from its command line. Head: the work tree (saved files - a notice when there are unsaved buffers). Files: the C/C++
-   files changed since the base (`git diff --name-only <base>`), not `feature_files.py`'s merges - that was for an old
+   files changed since the base (`git diff --name-only <base>` - tracked files only, see below), not `feature_files.py`'s merges - that was for an old
    feature, this is the change in progress.
    - **It needs the structure scan from the shipped editor.** `typediff.py` ran `gedit-bench --dump`, which isn't
      installed. So `goatedit --dump <file-or-folder>` - the same output (`StructureDump`, shared with the bench), no
@@ -424,8 +424,20 @@ not yet - one `.ask why` and one `.ask structure` on the user's go.
   `kChoicePlacement::kAbove` + `SetHeader` (`kBelow` stays the default). A workaround until modals scroll (hitlist #80).
 - **The status line moves while it takes a while:** `EA: ··•●• answering 12s` - a dot sweeping back and forth (glyphs
   Andale Mono has; it has no braille) and the time, for gathering, starting, waiting to send and answering.
-- **The templates' prose is wrapped at 76**, the consent's width - wrapped at ~115 it broke raggedly there. **Not built from the design:** the notice when
-`structure` runs with unsaved buffers (it reads the files as saved).
+- **The templates' prose is wrapped at 76**, the consent's width - wrapped at ~115 it broke raggedly there.
+
+**After a real `.ask structure` in another project (user, 2026-11-24; built 11-25):** the answer was good, the cost high (8
+calls, 180k cache write) - much of it untracked reference code that read as ~20 new types.
+- **The type-diff reads what git tracks** (`git add` is enough). Untracked C/C++ files are named, not scanned - by folder
+  when there are more than 20 - and the prompt says they may or may not be part of the change.
+- **The functions come last**, after the members: `max_lines` cuts the end, so it cuts the least telling list.
+- **`.agent model <name>`** - the Editor Agent's model for this session (`default`: back to `main.ai_model`; no name: which
+  it is). Nothing is written. One that runs is **started over with `--model`, a new conversation** - not `/model` typed
+  into it: Claude Code 2.1.331 saves that as the user's default for new sessions, and asks "Yes, switch / No, go back"
+  when there is a conversation to re-read uncached - which the next question's Enter would answer. Refused while a
+  question is out. The consent names the model.
+- **Unsaved changes are said in the consent** - `Read as last saved - unsaved: a.cpp, ...` - for every question: the tools
+  and the agent read the files. Autosave (on by default, 1 s) makes it rare.
 
 **What gets built (sketch, kept from the design):**
 - `AgentQuestionTemplate` (`src/Core/Agent/`) - parse a template (front matter + body), list / find by name across the

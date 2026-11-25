@@ -10,9 +10,10 @@ max_lines: 300
 What did the change in progress do to the structure of the code?
 
 This is a type-diff of the C/C++ files the change touched, at its base and
-in the work tree as saved - types, the inherits / holds edges (with
-ownership) and the includes between folders, then the functions and members
-(those lists are long and may be cut):
+in the work tree as saved - the inherits / holds edges (with ownership), the
+includes between folders, types and members, then the functions (that list
+is long and may be cut). Untracked files are only named - they may be new
+files of the change or not part of it at all:
 
 {tool:typediff}
 

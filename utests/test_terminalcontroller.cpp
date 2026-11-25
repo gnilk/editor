@@ -55,6 +55,7 @@ DLL_EXPORT int test_terminalcontroller_title(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_build_fastend(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_build_quietend(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_ctrl_to_shell(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_ctrl_d_shell_owned(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_settings(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_panel_configured(ITesting *t);
 }
@@ -1169,6 +1170,47 @@ DLL_EXPORT int test_terminalcontroller_ctrl_to_shell(ITesting *t) {
     sent.clear();
     TR_ASSERT(t, c.HandleKeyPress(cursor, line, TextKey(U't', Keyboard::kMod_LeftCtrl)));
     TR_ASSERT(t, sent == "\x14");
+    return kTR_Pass;
+}
+
+// Once a Ctrl chord has handed the line to readline, Ctrl+D on an empty line must still not reach it - it ends the shell
+// and the panel is dead. With text on the line it is readline's (delete), and a program's own always.
+DLL_EXPORT int test_terminalcontroller_ctrl_d_shell_owned(ITesting *t) {
+    TerminalController c;
+    c.Resize(40, 10);
+    std::string sent;
+    bool isForegroundJob = false;
+    c.SetPtyWriter([&sent](std::string_view bytes) { sent += bytes; });
+    c.SetForegroundJobProbe([&isForegroundJob]() { return isForegroundJob; });
+    FeedPty(c, "$ ");
+
+    Cursor cursor;
+    size_t line = 0;
+    auto ctrlD = TextKey(U'd', Keyboard::kMod_LeftCtrl);
+    TR_ASSERT(t, c.HandleKeyPress(cursor, line, TextKey(U'u', Keyboard::kMod_LeftCtrl)));
+    TR_ASSERT(t, c.DoesShellOwnLineEditing());
+
+    // Empty: held back, and readline keeps the line
+    sent.clear();
+    TR_ASSERT(t, c.HandleKeyPress(cursor, line, ctrlD));
+    TR_ASSERT(t, sent.empty());
+    TR_ASSERT(t, c.DoesShellOwnLineEditing());
+
+    // Text on it: readline's
+    FeedPty(c, "abc");
+    TR_ASSERT(t, c.HandleKeyPress(cursor, line, ctrlD));
+    TR_ASSERT(t, sent == "\x04");
+
+    // Erased again
+    FeedPty(c, "\r$ \x1b[K");
+    sent.clear();
+    TR_ASSERT(t, c.HandleKeyPress(cursor, line, ctrlD));
+    TR_ASSERT(t, sent.empty());
+
+    // A program reading its input gets it
+    isForegroundJob = true;
+    TR_ASSERT(t, c.HandleKeyPress(cursor, line, ctrlD));
+    TR_ASSERT(t, sent == "\x04");
     return kTR_Pass;
 }
 

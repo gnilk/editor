@@ -216,6 +216,8 @@ namespace gedit {
         // every passthrough path: an app owns the terminal, or readline owns the line. False for keys that never
         // go to the pty (Cmd combinations, keys with no encoding).
         bool ForwardKeyPressToShell(const KeyPress &keyPress);
+        static bool IsEndOfInputKey(const KeyPress &keyPress);
+        bool IsShellOwnedLineEmpty();
 
         void RequestRedraw();
         // One redraw at 'deadline' - the end of a synchronized update the app never ended - on the timer thread

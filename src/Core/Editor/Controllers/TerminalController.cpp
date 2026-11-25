@@ -579,6 +579,9 @@ bool TerminalController::ForwardKeyPressToShell(const KeyPress &keyPress) {
     if (keyPress.IsCommandPressed()) {
         return false;
     }
+    if (IsEndOfInputKey(keyPress) && IsShellOwnedLineEmpty()) {
+        return true;
+    }
     auto modifiers = ToVtModifiers(keyPress);
     if (keyPress.IsHumanReadable()) {
         WriteToPty(gnilk::vt::EncodeText(keyPress.key, modifiers));
@@ -603,6 +606,26 @@ bool TerminalController::ForwardKeyPressToShell(const KeyPress &keyPress) {
         return true;
     }
     return false;
+}
+
+// Ctrl+D; from a backend that delivers the control character too
+bool TerminalController::IsEndOfInputKey(const KeyPress &keyPress) {
+    if (keyPress.isSpecialKey) {
+        return false;
+    }
+    bool isCtrlD = keyPress.IsCtrlPressed() && !keyPress.IsShiftPressed() && !keyPress.IsAltPressed() &&
+                   ((keyPress.key == 'd') || (keyPress.key == 'D'));
+    return isCtrlD || (keyPress.key == 0x04);
+}
+
+// readline has the line (a Ctrl chord or Tab handed it over) and nothing is on it: Ctrl+D would end the shell and leave
+// the panel dead. A program reading its input is not this - it gets its end of file.
+bool TerminalController::IsShellOwnedLineEmpty() {
+    if (!doesShellOwnLineEditing || IsAppActive()) {
+        return false;
+    }
+    std::lock_guard<std::mutex> guard(screenLock);
+    return inputLine->Length() == 0;
 }
 
 // Passthrough: the action's own key goes to the pty, encoded - Esc, Ctrl+C, Shift+Tab, Ctrl+arrows reach the app

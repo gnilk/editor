@@ -176,9 +176,26 @@ added - after that, its rows are not the grid's rows. **Open, for phase 4:** on 
 (the editor's text goes elsewhere - a line of the panel's own, the status line, the Messages tab), or keep track of the
 offset. Git Bash for ordinary commands moved only for blank lines; PowerShell's line editor moves on every key.
 
-**Still to try:** Microsoft's newer `conpty.dll` (NuGet `Microsoft.Windows.Console.ConPTY`, `--conpty`) - said to pass a
-program's output through more directly, which may end the blank-line jumps and the reordering; and the probe on a machine
-of the target user (§8).
+**Microsoft's newer `conpty.dll`** (NuGet `Microsoft.Windows.Console.ConPTY` 1.25.261109001, MIT; `conpty.dll` +
+`OpenConsole.exe`; the probe's `--conpty`, run over SSH 2026-11-26) fixes nearly all of the above:
+
+| | Built into Windows | The newer `conpty.dll` |
+|---|---|---|
+| Blank lines | a jump to a fixed row | **line breaks** |
+| Git Bash | jumps for blank lines | **no jumps at all, every mark** |
+| Other sequences | moved before the text | **in place** (?2026 works) |
+| Resize | the screen sent again | **not sent again** |
+| Mouse reports | not seen | **come through** |
+| At start | clears the screen | **no clear**; asks `ESC[c` (and `ESC[1t`) and waits for the answer - gvt answers DA1 |
+| PowerShell, cmd | fixed rows | **still fixed rows - for the line being typed** (their line editors redraw it in place); the output flows |
+
+**Decided (2026-11-26): ship the newer `conpty.dll` and `OpenConsole.exe`** next to `goatedit.exe` (x64, arm64 - about 1.2 MB),
+as Windows Terminal does; load it from the editor's own folder, the built-in console as the fallback, with a notice. Its MIT
+licence goes in with the others. With Git Bash as the default shell, the editor's own text in the grid is no problem;
+**open for phase 4:** PowerShell and cmd, whose typed line is drawn at a fixed row - the editor's own text above it puts
+that line out of step.
+
+Still to run: the probe on a machine of the target user (§8).
 
 **Shell - decided: bash by default, a setting** (`windows: terminal: shell`):
 
@@ -252,12 +269,12 @@ Until 2026-11-25 the plan was to port blind: cross-compile, copy, look. With the
 
 | Phase | What | Size |
 |---|---|---|
-| - | **The ConPTY probe on the laptop** (§4.5) - **done 2026-11-26** (§4.5.1): the marks work; blank lines and the editor's own text in the grid are phase 4's problems. Left: the newer `conpty.dll` | - |
+| - | **The ConPTY probe on the laptop** (§4.5) - **done 2026-11-26** (§4.5.1): the marks work; ship the newer `conpty.dll` - then only PowerShell's and cmd's typed line is a phase 4 problem | - |
 | 0 | **The platform layer (§2) on Linux + macOS**, behaviour unchanged, tests green. After `feature/editor-agent-ask` is run on Linux and merged to `dev` - it changes the same files (`Shell`, the agent). Line endings kept (§4.2) - useful on unix too | 2-3 days |
 | 1 | **The Windows build:** the presets (clang-cl, MSVC), the CMake branch, deps, compile fixes, the UTF-8 / DPI manifest, `UserDirs` for Windows (§3), the `windows:` config section; stubs (no folder monitor, the terminal panel says "not yet"). Goal: a window, editing, the config, the unit tests on the laptop | 2-4 days |
 | 2 | **Files and keys:** AltGr (§4.1), path case and drive letters (§4.4), MSVC build messages, the projects setting (§3.2). Tried on the laptop's keyboard | 2-3 days |
 | 3 | `ProcessWindows` (§4.6), `WindowsFolderMonitor` (§4.7), the font fallback (§4.8), the crash handler | 2-3 days |
-| 4 | **The terminal:** `ConPty`, Git Bash / pwsh / cmd (§4.5), shell integration (OSC 133 / 7) - test OSC 133 through ConPTY first | 3-5 days - the most uncertain |
+| 4 | **The terminal:** `ConPty` over the shipped `conpty.dll` (§4.5.1), Git Bash / pwsh / cmd (§4.5), shell integration (OSC 133 / 7) | 3-5 days - the most uncertain |
 | 5 | The agent and the tools on Windows, a zip (later an installer) | 1-2 days |
 
 Roughly two to three weeks of focused work; phase 4 carries the risk. Phase 0 is worth doing whether or not the rest
@@ -266,8 +283,7 @@ follows.
 ## 8. Open
 
 - The Windows 10 floor - the target user's machines (1903 is the technical minimum).
-- Whether the editor keeps the grid exactly the pseudo console's, or tracks an offset for its own text (§4.5.1).
-- Microsoft's newer `conpty.dll` - shipped with the editor, if it ends the blank-line jumps (§4.5.1).
+- PowerShell and cmd with the editor's own text in the grid: their typed line is drawn at a fixed row (§4.5.1).
 - clang-cl or MSVC for the shipped build - try clang-cl first.
 - Whether OSC 133 survives ConPTY on the target user's Windows (§4.5.1: it does on 11 26200).
 - What Claude Code on Windows names its transcript folders, and how `~/.claude.json` spells the trusted paths (§4.4).

@@ -55,8 +55,14 @@ namespace gedit::SDL3 {
     private:
         void ComputeScalingFactors();
         void CreateTextures();
-        // Screen pixels per logical (window) pixel, asked of SDL - 2 on a Retina display
+        // Screen pixels per logical pixel - the display scale: 2 on a Retina display, 1.5 for Windows at 150 % (there
+        // the window is sized in screen pixels and the scale is the user's setting; on macOS it is the pixel density)
         float WindowPixelDensity();
+        // Window coordinates (SDL's sizes, mouse positions) to logical pixels: 1 on macOS (window points are logical),
+        // 1/scale on Windows (window coordinates are screen pixels)
+        float WindowToLogical();
+        // The window's size in logical pixels - what the layout works in
+        void LogicalWindowSize(int &outWidth, int &outHeight);
         // The theme's font, rasterised for 'density' (docs/open-bugs.md #18)
         void LoadFontFromTheme(float density);
         // The window's pixel size changed - lay out again only when it is because the density did
@@ -92,6 +98,7 @@ namespace gedit::SDL3 {
         int rows = 0;
         int cols = 0;
         float pixelDensity = 1.0f;      // screen pixels per logical pixel, as the font was built for
+        float windowToLogical = 1.0f;   // WindowToLogical() as of the last layout - for the mouse
 
         // The system pointers, made the first time each is shown (docs/usability-round.md §2)
         SDL_Cursor *pointerShapes[4] = {};

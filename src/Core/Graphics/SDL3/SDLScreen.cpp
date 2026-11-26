@@ -244,7 +244,8 @@ void SDLScreen::LoadFontFromTheme(float density) {
 // Called also from resize.
 void SDLScreen::ComputeScalingFactors() {
 
-    SDL_GetWindowSize(window, &widthPixels, &heightPixels);
+    LogicalWindowSize(widthPixels, heightPixels);
+    windowToLogical = WindowToLogical();
 
     auto displayId = SDL_GetDisplayForWindow(window);
     auto displayMode = SDL_GetDesktopDisplayMode(displayId);
@@ -296,13 +297,34 @@ void SDLScreen::ComputeScalingFactors() {
 }
 
 float SDLScreen::WindowPixelDensity() {
+    float scale = SDL_GetWindowDisplayScale(window);
+    if (scale > 0.0f) {
+        return scale;
+    }
     float density = SDL_GetWindowPixelDensity(window);
     return (density > 0.0f) ? density : 1.0f;
 }
 
+float SDLScreen::WindowToLogical() {
+    float density = SDL_GetWindowPixelDensity(window);
+    if (density <= 0.0f) {
+        density = 1.0f;
+    }
+    return density / WindowPixelDensity();
+}
+
+void SDLScreen::LogicalWindowSize(int &outWidth, int &outHeight) {
+    int width = 0;
+    int height = 0;
+    SDL_GetWindowSize(window, &width, &height);
+    float factor = WindowToLogical();
+    outWidth = (int)std::lround((float)width * factor);
+    outHeight = (int)std::lround((float)height * factor);
+}
+
 void SDLScreen::CreateTextures() {
 
-    SDL_GetWindowSize(window, &widthPixels, &heightPixels);
+    LogicalWindowSize(widthPixels, heightPixels);
 
     if (screenAsSurface != nullptr) {
         SDL_DestroySurface(screenAsSurface);
@@ -341,11 +363,14 @@ void SDLScreen::OnMoved() {
     ReportWindowGeometry();
 }
 
+// In window coordinates - what SDL takes back when the session restores the window
 void SDLScreen::ReportWindowGeometry() {
-    SDL_GetWindowSize(window, &widthPixels, &heightPixels);
+    int winWidth = 0;
+    int winHeight = 0;
+    SDL_GetWindowSize(window, &winWidth, &winHeight);
     int winXpos, winYpos;
     SDL_GetWindowPosition(window, &winXpos, &winYpos);
-    NotifyWindowGeometryChanged(winXpos, winYpos, widthPixels, heightPixels);
+    NotifyWindowGeometryChanged(winXpos, winYpos, winWidth, winHeight);
 }
 
 bool SDLScreen::GetPrimaryDisplayBounds(int &x, int &y, int &width, int &height) {
@@ -617,9 +642,10 @@ void SDLScreen::FreePointerShapes() {
 }
 
 // The cell under a window position (logical pixels), and where in that cell it is
+// SDL's mouse position is in window coordinates - logical first (Windows' are screen pixels)
 void SDLScreen::SetMousePosition(MouseEvent &mouseEvent, float pixelX, float pixelY) {
-    float col = pixelX;
-    float row = pixelY;
+    float col = pixelX * windowToLogical;
+    float row = pixelY * windowToLogical;
     SDLTranslate::PixelToRowCol(col, row);
     mouseEvent.x = (int)std::floor(col);
     mouseEvent.y = (int)std::floor(row);

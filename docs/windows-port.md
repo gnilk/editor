@@ -48,12 +48,12 @@ implementation" - `unix/ProcessUnix.cpp`) and `SystemFonts` (`Graphics/SystemFon
 | `getenv` / `unsetenv` | `Platform::GetEnv` / `UnsetEnv`, UTF-8 - Windows `_wgetenv` / `_wputenv_s` |
 | `access(X_OK)` + `PATH` split on `':'` (`AgentIntegrations::FindExecutable`, `XDGEnvironment`) | `Platform::FindExecutable(name)` - Windows: `;` and `PATHEXT`, so `claude` finds `claude.exe` / `claude.cmd` |
 | `wordexp` for `~` (`Editor.cpp`, the bootstrap script) | `PathUtil::ExpandUser` - our own, `~/` and `~\` |
-| `::fsync` + rename (`SessionManager`'s crash-safe save) | `Platform::AtomicReplace(tmp, target)` - unix fsync + rename; Windows `ReplaceFileW` with a short retry (antivirus and the indexer hold files open) |
+| `::fsync` + rename (`SessionManager`'s crash-safe save) | `Platform::WriteFileAtomic(path, content)` (done: the whole write, not `AtomicReplace(tmp, target)`) - unix fsync + rename; Windows `ReplaceFileW` with a short retry (antivirus and the indexer hold files open) |
 | `_NSGetExecutablePath` / `/proc/self/exe` (`InstallPaths`) | `Platform::ExecutablePath()` - Windows `GetModuleFileNameW` |
 | `#ifdef` picking `MacOSFolderMonitor` / `LinuxFolderMonitor` as a member of `RuntimeConfig` | a `FolderMonitor` interface + `FolderMonitor::Create()`; `RuntimeConfig` holds a `FolderMonitor::Ref` |
-| `unix/Shell` (pty, fork, the job / cwd probes), included by `TerminalController.h` | a `PtySession` interface - `Begin`, `Write`, `SetWindowSize`, `IsForegroundJobRunning`, `WorkingDirectory`, `Close` - with `UnixPty` and `ConPty` |
+| `unix/Shell` (pty, fork, the job / cwd probes), included by `TerminalController.h` | a `PtySession` interface - `Begin`, `Write`, `SetWindowSize`, `IsForegroundJobRunning`, `WorkingDirectory`, `Close` - with `UnixPty` and `ConPty` (done: the ten calls the controller made, `Create()` per platform; the emulation above stays one path) |
 | `"linux"` / `"macos"` by `#if` in `KeyMapping.cpp`, set again in `Editor.cpp` | `Platform::Name()` - `linux` / `macos` / `windows` - one constant: the keymap section, the `config.yml` section |
-| `signal(SIGSEGV)` + `execinfo` (`main.cpp`) | `Platform::InstallCrashHandler()` - Windows `SetUnhandledExceptionFilter` (`backward.hpp` does Windows with dbghelp) |
+| `signal(SIGSEGV)` + `execinfo` (`main.cpp`) | nothing (done: `execinfo` was unused; `std::signal` + backward-cpp, which does Windows with dbghelp, are portable - no `InstallCrashHandler`) |
 | `XDGEnvironment` (home, config, state, data dirs, the session type) | split: **`UserDirs`** - where things live, a pure function of (an environment map, the platform), unit-tested for every platform on any OS - and `XDGEnvironment`, unix's reader of that map + the session type |
 
 ### 2.2 What stays an `#if`
@@ -114,9 +114,47 @@ the `SDL_EVENT_TEXT_INPUT` through. **Needs a real Windows keyboard** - Wine won
 
 ### 4.2 Line endings
 
-The editor drops `\r` when it loads (`TextBuffer.cpp`, "trailing whitespace (and a '\r') dropped") and saves `\n` - so
-every CRLF file is converted, silently, on its first save. Only `ConfigFilePatcher` keeps endings. Needed: a document's
-line ending found on load, kept on save, shown in the status line (`CRLF`). Worth doing on unix too - before the port.
+The editor drops `\r` when it loads (`TextBuffer.cpp`, "trailing whitespace (and a '\r') dropped") and saves `\n` after
+every line - so a CRLF file is converted, silently, on its first save, and a file without a last newline gets one. Only
+`ConfigFilePatcher` keeps endings. Worth doing on unix too - before the port. **Design (user, 2026-11-26):**
+
+**Each line keeps its own ending.** `Line` gets an enum - `kLF`, `kCRLF`, `kNone` (the last line, no newline after it) -
+set on load, written on save. One byte a line, nothing on the typing path. A lone `\r` (old Mac files) stays text. The
+document's style (LF, CRLF or mixed) is worked out from its lines when asked, never stored, so it can't drift.
+
+**New lines take the ending of the line they come from:**
+- Enter splits a line - both halves keep its ending (a CRLF file stays CRLF without anyone choosing).
+- A paste drops the clipboard's endings; the pasted lines take the ending of the line they land in. Text from a Windows
+  program arrives as CRLF, and a file should not turn mixed by accident.
+- A new file: `main.line_endings`.
+
+**Config - the values never say LF or CRLF** (nobody remembers which is which), next to `convert_encoding`:
+
+    main:
+      # unix (LF) | windows (CRLF) | platform (windows on Windows, unix elsewhere) - a new file's, and what 'convert' makes
+      line_endings: platform
+      # A file with both - ask (at its first save) | keep (each line as it is) | convert (to line_endings)
+      mixed_line_endings: ask
+
+`lf` / `crlf` are read as aliases, never shown. A file that is all one style keeps it, whatever `line_endings` says.
+
+**Ask at the first save of a mixed file, not when it opens** - opening never blocks on a dialog, and most files are only
+read. On load the status line says `Mixed`; the save asks *Keep as is / Convert to unix / windows*. The question belongs to
+the save command (Editor / Document), not `TextBuffer::DoSave` - the buffer only writes what its lines say.
+
+**Status line:** `CRLF` or `Mixed` - only when the file differs from `line_endings`, so an LF file on unix shows nothing new.
+
+**`.line_endings unix|windows`** converts on purpose (as `.encoding utf-8` does), one undo step; alone, it prints the
+file's style.
+
+**Also:**
+- A reload compares like with like - `ReadLines` returns the endings too.
+- The clipboard stays LF inside the editor; the Windows clipboard may want CRLF going out (phase 2, tested over the OS
+  round trip - the E.18 lesson in CLAUDE.md).
+- git's `core.autocrlf` on Windows checks out CRLF - the main reason `keep` matters: a save must not make every line a
+  change in `git diff`.
+- Not part of this: the load also drops trailing whitespace (`AppendLine`'s `rtrim`) - another silent change on save,
+  kept as it is.
 
 ### 4.3 UTF-8 strings and paths
 
@@ -270,7 +308,7 @@ Until 2026-11-25 the plan was to port blind: cross-compile, copy, look. With the
 | Phase | What | Size |
 |---|---|---|
 | - | **The ConPTY probe on the laptop** (§4.5) - **done 2026-11-26** (§4.5.1): the marks work; ship the newer `conpty.dll` - then only PowerShell's and cmd's typed line is a phase 4 problem | - |
-| 0 | **The platform layer (§2) on Linux + macOS**, behaviour unchanged, tests green. After `feature/editor-agent-ask` is run on Linux and merged to `dev` - it changes the same files (`Shell`, the agent). Line endings kept (§4.2) - useful on unix too | 2-3 days |
+| 0 | **The platform layer (§2) on Linux + macOS**, behaviour unchanged, tests green. After `feature/editor-agent-ask` is run on Linux and merged to `dev` - it changes the same files (`Shell`, the agent). Line endings kept (§4.2) - useful on unix too. **2026-11-26, `feature/windows-port`:** the platform layer done (`Platform.h`, `UserDirs`, `FolderMonitor::Create`, `PtySession` + `unix/UnixPty`), green on Linux + macOS; line endings next | 2-3 days |
 | 1 | **The Windows build:** the presets (clang-cl, MSVC), the CMake branch, deps, compile fixes, the UTF-8 / DPI manifest, `UserDirs` for Windows (§3), the `windows:` config section; stubs (no folder monitor, the terminal panel says "not yet"). Goal: a window, editing, the config, the unit tests on the laptop | 2-4 days |
 | 2 | **Files and keys:** AltGr (§4.1), path case and drive letters (§4.4), MSVC build messages, the projects setting (§3.2). Tried on the laptop's keyboard | 2-3 days |
 | 3 | `ProcessWindows` (§4.6), `WindowsFolderMonitor` (§4.7), the font fallback (§4.8), the crash handler | 2-3 days |

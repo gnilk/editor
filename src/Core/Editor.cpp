@@ -58,9 +58,6 @@
 #include "Core/Graphics/Gansi/GansiKeyboardDriver.h"
 #endif
 
-#include <sys/stat.h>
-#include <unistd.h>
-
 #include "Core/XDGEnvironment.h"
 #include "Core/InstallPaths.h"
 #include "Core/UnicodeHelper.h"
@@ -870,9 +867,9 @@ void Editor::RunPostInitalizationScript() {
         auto strScript = pathutil::ExpandUser(scriptFile, UserDirs::Home()).string();
         logger->Debug("Trying: %s", strScript);
 
-        // Verify if shell exists...
-        struct stat scriptStat = {};
-        if (!stat(strScript.c_str(),&scriptStat)) {
+        // A file of that name (absolute, or relative to the cwd) - else a system asset
+        std::error_code ec;
+        if (std::filesystem::exists(strScript, ec)) {
             logger->Debug("Script '%s' is absolute - executing", strScript.c_str());
             std::ifstream f(strScript);
             ExecutePostScript(f);
@@ -1358,8 +1355,6 @@ static std::vector<std::string> glbSupportedBackends = {
 #endif
     {"headless"}
 };
-
-extern "C" char ** environ;
 
 bool Editor::TakeStartedFromUI() {
     static const char *kStartedFromUI = "GEDIT_MACOS_STARTED_FROM_UI";

@@ -9,7 +9,6 @@
 #include "Core/Config/Config.h"
 #include "Core/Editor.h"
 #include <thread>
-#include <pthread.h>
 #include <filesystem>
 #include <fstream>
 #include <iterator>

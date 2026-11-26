@@ -87,9 +87,10 @@ set(DUKGLUE_HOME ${dukglue_SOURCE_DIR})
 # The Linux trun package installs to /usr/include; macOS installs to
 # /usr/local/include — probe both explicitly.
 # ---------------------------------------------------------------------------
+# Windows has no install location: $TRUN_INCLUDE_DIR (e.g. <testrunner>/src/testrunner/ext_testinterface)
 find_path(TRUN_INCLUDE_DIR
     NAMES testinterface.h
-    PATHS /usr/local/include /usr/include
+    PATHS $ENV{TRUN_INCLUDE_DIR} /usr/local/include /usr/include
     NO_DEFAULT_PATH
 )
 if (NOT TRUN_INCLUDE_DIR)

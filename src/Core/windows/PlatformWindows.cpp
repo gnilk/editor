@@ -83,6 +83,27 @@ std::filesystem::path Platform::ExecutablePath() {
     }
 }
 
+std::filesystem::path Platform::ModulePathOf(const void *address) {
+    HMODULE module = nullptr;
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            (LPCWSTR)address, &module)) {
+        return {};
+    }
+    std::vector<wchar_t> buffer(MAX_PATH);
+    while (true) {
+        DWORD length = GetModuleFileNameW(module, buffer.data(), (DWORD)buffer.size());
+        if (length == 0) {
+            return {};
+        }
+        if (length < buffer.size()) {
+            std::error_code ec;
+            auto modulePath = std::filesystem::canonical(std::filesystem::path(std::wstring(buffer.data(), length)), ec);
+            return ec ? std::filesystem::path() : modulePath;
+        }
+        buffer.resize(buffer.size() * 2);
+    }
+}
+
 // ';' between the dirs; 'name' as it is, then with each PATHEXT extension ('claude' finds claude.exe / claude.cmd)
 std::optional<std::filesystem::path> Platform::FindExecutable(const std::string &name, const std::string &pathVariable,
                                                               const std::vector<std::filesystem::path> &moreDirs) {

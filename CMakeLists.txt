@@ -254,8 +254,9 @@ elseif(WIN32)
     list(APPEND platformsrc src/Core/windows/SystemFontsWindows.cpp)
 
     list(APPEND extlibs yaml-cpp::yaml-cpp)
-    # A console program for now - its stderr is where the early messages go
-    add_executable(${CUR_TARGET} ${appsrc})
+    # A console program for now - its stderr is where the early messages go. The manifest: UTF-8 as the process's code
+    # page (narrow strings and paths are UTF-8, as on unix), per-monitor DPI, long paths (docs/windows-port.md §4.3)
+    add_executable(${CUR_TARGET} ${appsrc} ${CMAKE_SOURCE_DIR}/Assets/CMake/goatedit.manifest)
 elseif(UNIX)
     message(STATUS "Linux build")
 
@@ -679,7 +680,10 @@ list(APPEND utestsrc utests/test_runloop.cpp)
 list(APPEND utestsrc utests/test_cpplang.cpp)
 list(APPEND utestsrc utests/test_codeindex.cpp)
 list(APPEND utestsrc utests/test_exclusion.cpp)
-list(APPEND utestsrc utests/test_process.cpp)
+if (NOT WIN32)
+    # Real children and UnixPty - Windows' process and pty are stubs until phases 3 and 4 (docs/windows-port.md §7)
+    list(APPEND utestsrc utests/test_process.cpp)
+endif()
 list(APPEND utestsrc utests/test_platform.cpp)
 list(APPEND utestsrc utests/test_lineendings.cpp)
 list(APPEND utestsrc utests/test_gitstatus.cpp)
@@ -742,7 +746,11 @@ endif()
 
 
 add_library(utests SHARED ${coresrc} ${uisrc} ${editorsrc} ${platformsrc} ${graphics_sdlsrc} ${graphics_gansisrc} ${jsapi} ${duktape} ${utestsrc})
-target_compile_options(utests PUBLIC -fPIC -D TRUN_USE_V1)
+if (MSVC)
+    target_compile_options(utests PUBLIC -DTRUN_USE_V1)
+else()
+    target_compile_options(utests PUBLIC -fPIC -D TRUN_USE_V1)
+endif()
 target_include_directories(utests PUBLIC ${includedirs} ${CMAKE_BINARY_DIR}/generated)
 target_include_directories(utests SYSTEM PUBLIC ${DUKGLUE_HOME}/include)
 # CMake strips /usr/local/include from target_include_directories on macOS (treats it as an

@@ -2,12 +2,12 @@
 // Created by gnilk on 02.05.23.
 //
 #include <testinterface.h>
-#include <dlfcn.h>
 #include <filesystem>
 #include "logger.h"
 #include "Core/Editor.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/UnicodeHelper.h"
+#include "Core/Platform.h"
 
 using namespace gedit;
 
@@ -30,13 +30,8 @@ void UTestConsole::WriteLine(const std::u32string &str) {
 // The build tree's assets: next to this library, not next to the executable (that's trun) and never an
 // installed copy - docs/install-layout.md
 static std::string TestAssetDir() {
-    Dl_info info = {};
-    if ((dladdr(reinterpret_cast<void *>(&test_main), &info) == 0) || (info.dli_fname == nullptr)) {
-        return "resources";
-    }
-    std::error_code ec;
-    auto libPath = std::filesystem::canonical(info.dli_fname, ec);
-    if (ec) {
+    auto libPath = Platform::ModulePathOf(reinterpret_cast<const void *>(&test_main));
+    if (libPath.empty()) {
         return "resources";
     }
     return (libPath.parent_path() / "resources").string();

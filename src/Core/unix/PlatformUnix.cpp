@@ -3,6 +3,7 @@
 //
 
 #include <cstdlib>
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -80,6 +81,16 @@ std::filesystem::path Platform::ExecutablePath() {
         return {};
     }
     return exePath;
+}
+
+std::filesystem::path Platform::ModulePathOf(const void *address) {
+    Dl_info info = {};
+    if ((dladdr(address, &info) == 0) || (info.dli_fname == nullptr)) {
+        return {};
+    }
+    std::error_code ec;
+    auto modulePath = std::filesystem::canonical(info.dli_fname, ec);
+    return ec ? std::filesystem::path() : modulePath;
 }
 
 std::optional<std::filesystem::path> Platform::FindExecutable(const std::string &name, const std::string &pathVariable,

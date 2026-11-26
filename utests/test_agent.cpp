@@ -20,6 +20,7 @@
 #include "Core/Editor/AgentAsk.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/Platform.h"
+#include "Core/UserDirs.h"
 
 using namespace gedit;
 
@@ -121,25 +122,42 @@ DLL_EXPORT int test_agent_claude_transcripts(ITesting *t) {
     TR_ASSERT(t, ClaudeAgent::ProjectFolderName("/home/a/my_proj/") == "-home-a-my-proj");
     TR_ASSERT(t, ClaudeAgent::ProjectFolderName("/home/a/x/../y") == "-home-a-y");
 
-    auto saved = std::getenv("CLAUDE_CONFIG_DIR");
-    std::string savedValue = (saved != nullptr) ? saved : "";
-    setenv("CLAUDE_CONFIG_DIR", "/tmp/goatedit_agent_cfg", 1);
+    auto saved = Platform::GetEnv("CLAUDE_CONFIG_DIR");
+    Platform::SetEnv("CLAUDE_CONFIG_DIR", "/tmp/goatedit_agent_cfg");
     auto dir = ClaudeAgent::Create()->TranscriptDir("/home/a/proj");
-    TR_ASSERT(t, dir.has_value() && (dir.value() == std::filesystem::path("/tmp/goatedit_agent_cfg/projects/-home-a-proj")));
-    unsetenv("CLAUDE_CONFIG_DIR");
-    auto home = std::getenv("HOME");
+    TR_ASSERT(t, dir.has_value() && (dir.value() == std::filesystem::path("/tmp/goatedit_agent_cfg") / "projects" / "-home-a-proj"));
+    Platform::UnsetEnv("CLAUDE_CONFIG_DIR");
+    auto &home = UserDirs::Home();
     auto homeDir = ClaudeAgent::Create()->TranscriptDir("/home/a/proj");
-    if (home != nullptr) {
-        TR_ASSERT(t, homeDir.has_value() && (homeDir.value() == std::filesystem::path(home) / ".claude" / "projects" / "-home-a-proj"));
+    if (!home.empty()) {
+        TR_ASSERT(t, homeDir.has_value() && (homeDir.value() == home / ".claude" / "projects" / "-home-a-proj"));
     }
-    if (saved != nullptr) {
-        setenv("CLAUDE_CONFIG_DIR", savedValue.c_str(), 1);
+    if (saved.has_value()) {
+        Platform::SetEnv("CLAUDE_CONFIG_DIR", *saved);
     }
     return kTR_Pass;
 }
 
 // On PATH first, then the extra places; only an executable file; a name with a '/' isn't looked up
 DLL_EXPORT int test_agent_find_executable(ITesting *t) {
+#if defined(GEDIT_WINDOWS)
+    // Windows: ';' between the dirs, and the name without its extension - PATHEXT finds 'tool.cmd'
+    auto winDir = std::filesystem::temp_directory_path() / "goatedit_agent_find_executable";
+    std::filesystem::remove_all(winDir);
+    std::filesystem::create_directories(winDir / "a");
+    std::filesystem::create_directories(winDir / "b");
+    {
+        std::ofstream(winDir / "a" / "tool.txt") << "not a program";
+        std::ofstream(winDir / "b" / "tool.cmd") << "@echo off\n";
+    }
+    auto winPath = (winDir / "a").string() + ";;" + (winDir / "b").string();
+    auto winFound = Platform::FindExecutable("tool", winPath, {});
+    TR_ASSERT(t, winFound.has_value() && (winFound->filename() == "tool.cmd"));
+    TR_ASSERT(t, !Platform::FindExecutable("other", winPath, {}).has_value());
+    TR_ASSERT(t, !Platform::FindExecutable("b\\tool", winDir.string(), {}).has_value());
+    std::filesystem::remove_all(winDir);
+    return kTR_Pass;
+#endif
     auto dir = std::filesystem::temp_directory_path() / "goatedit_agent_find_executable";
     std::filesystem::remove_all(dir);
     std::filesystem::create_directories(dir / "a");

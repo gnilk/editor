@@ -35,6 +35,8 @@ namespace gedit::Platform {
 
     // The running executable, symlinks resolved; empty when the system won't say
     std::filesystem::path ExecutablePath();
+    // The executable or shared library 'address' is in (a function of its own: the unit tests find their library)
+    std::filesystem::path ModulePathOf(const void *address);
 
     // An executable called 'name' (a plain name, no directory part): in the dirs of 'pathVariable' (a PATH value, in
     // the platform's syntax), then in 'moreDirs'. Windows also tries the PATHEXT extensions ('claude' finds claude.cmd)

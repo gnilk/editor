@@ -475,7 +475,7 @@ std::pair<bool, kLanguageTokenClass> LangLineTokenizer::GetNextToken(std::u32str
     auto currentState = stateStack.top().get();
     assert(currentState != nullptr);
 
-    if (!strutil::skipWhiteSpace(itInput)) {
+    if (!strutil::skipWhiteSpace(itInput, last)) {
         return {false, kLanguageTokenClass::kUnknown};
     }
 

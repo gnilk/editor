@@ -167,17 +167,17 @@ namespace strutil {
         }
         return true;
     }
-    bool skipWhiteSpace(std::u32string::const_iterator &it) {
-        if (*it == U'\0') {
-            return false;
-        }
-        while(std::isspace(*it) && *it != U'\0') {
+    // White space as isspace has it, for any code point (std::isspace above 255 is undefined - MSVC's debug CRT asserts)
+    static bool IsSpace32(char32_t ch) {
+        return (ch == U' ') || (ch == U'\t') || (ch == U'\n') || (ch == U'\r') || (ch == U'\v') || (ch == U'\f');
+    }
+
+    // Up to 'end' - never past it: the old form looked for a U'\0' by dereferencing end() (found on Windows, 2026-11-26)
+    bool skipWhiteSpace(std::u32string::const_iterator &it, std::u32string::const_iterator end) {
+        while ((it != end) && IsSpace32(*it)) {
             it++;
         }
-        if (*it == U'\0') {
-            return false;
-        }
-        return true;
+        return (it != end) && (*it != U'\0');
     }
 
 
@@ -202,11 +202,11 @@ namespace strutil {
         return dst;
     }
 
-    bool getNextTokenNoOperator(std::u32string &dst, std::u32string::const_iterator &it) {
-        if (!skipWhiteSpace(it)) {
+    bool getNextTokenNoOperator(std::u32string &dst, std::u32string::const_iterator &it, std::u32string::const_iterator end) {
+        if (!skipWhiteSpace(it, end)) {
             return false;
         }
-        while(!std::isspace(*it) && (*it != U'\0')) {
+        while ((it != end) && !IsSpace32(*it) && (*it != U'\0')) {
             dst.push_back(*it);
             it++;
         }
@@ -242,7 +242,7 @@ namespace strutil {
         }
         std::u32string str;
         auto it = input.begin();
-        while(getNextTokenNoOperator(str, it)) {
+        while(getNextTokenNoOperator(str, it, input.end())) {
             outList.emplace_back(str);
             str = U"";
         }

@@ -64,8 +64,6 @@ list(APPEND duktape ${DUKTAPE_HOME}/duktape.c ${DUKTAPE_HOME}/duk_config.h ${DUK
 list(APPEND duktape ${DUKTAPE_EXTRAS}/module-node/duk_module_node.c)
 
 if (WIN32)
-    # Before the deps: gnklog needs it as much as we do (src/Core/windows/WinPrelude.h says why)
-    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:/FI${CMAKE_CURRENT_SOURCE_DIR}/src/Core/windows/WinPrelude.h>")
     # More than the first 20 errors of a file while the port compiles
     add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-ferror-limit=0>")
 endif()
@@ -248,7 +246,7 @@ elseif(WIN32)
 
     add_definitions(-DGEDIT_WINDOWS -DNOMINMAX -DWIN32_LEAN_AND_MEAN -D_CRT_SECURE_NO_WARNINGS)
 
-    list(APPEND platformsrc src/Core/windows/WinPrelude.h src/Core/windows/WinString.h)
+    list(APPEND platformsrc src/Core/windows/WinString.h)
     list(APPEND platformsrc src/Core/windows/PlatformWindows.cpp)
     list(APPEND platformsrc src/Core/windows/PtySessionWindows.cpp)
     list(APPEND platformsrc src/Core/windows/ProcessWindows.cpp)

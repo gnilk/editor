@@ -35,7 +35,9 @@ namespace gedit {
             bool isExpanded = false;
 
             // this one is clipped and mutiliated during drawing - should now be relied on for anything
-            std::string drawString = {};    // filled in during 'Flatten'
+            // Filled in during 'Flatten' - decoded from the UTF-8 name, so its length is characters (cells) and it is
+            // drawn as text, not as bytes (a 'räksmörgås.h' showed as 'r  ksm  rg  s.h')
+            std::u32string drawString = {};
             std::string markers = {};       // right-aligned, filled in during 'Flatten'
 
             int indent = 0;
@@ -455,7 +457,7 @@ namespace gedit {
                     int erasePos = widthMax - node->indent - 3;
                     if (erasePos > 0) {
                         node->drawString.erase(erasePos);
-                        node->drawString += "...";
+                        node->drawString += U"...";
                     }
                 }
             }
@@ -502,12 +504,12 @@ namespace gedit {
                 dc.FillLine(yPos, kTextAttributes::kNormal, ' ');
                 if ((size_t)i == treeLineCursor.idxActiveLine) {
                     dc.FillLine(yPos, kTextAttributes::kNormal | kTextAttributes::kInverted, ' ');
-                    dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes | kTextAttributes::kInverted, str.c_str());
+                    dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes | kTextAttributes::kInverted, str);
                     drawMarkers(kTextAttributes::kNormal | kTextAttributes::kInverted);
                     continue;
                 }
                 if (cbDrawRow != nullptr) {
-                    dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.substr(0, 1).c_str());   // the +/-
+                    dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.substr(0, 1));   // the +/-
                     bool isDrawn = cbDrawRow(dc, node->indent + 1, yPos, viewRect.Width(), node->data);
                     dc.SetColor(foreground, background);
                     if (isDrawn) {
@@ -517,16 +519,16 @@ namespace gedit {
                 auto colour = (cbColour != nullptr) ? cbColour(node->data) : std::nullopt;
                 if (colour.has_value()) {
                     dc.SetColor(*colour, background);
-                    dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.c_str());
+                    dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str);
                     drawMarkers(kTextAttributes::kNormal);
                     dc.SetColor(foreground, background);
                 } else if ((cbDim != nullptr) && cbDim(node->data)) {
                     dc.SetColor(dimmed, background);
-                    dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.c_str());
+                    dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str);
                     drawMarkers(kTextAttributes::kNormal);
                     dc.SetColor(foreground, background);
                 } else {
-                    dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str.c_str());
+                    dc.DrawStringWithAttributesAt(node->indent, yPos, itemAttributes, str);
                     drawMarkers(kTextAttributes::kNormal);
                 }
             }
@@ -547,19 +549,19 @@ namespace gedit {
             node->indent = indent;
 
 
-            auto str = cbToString(node->data);
+            auto str = UnicodeHelper::utf8to32(cbToString(node->data));
             node->markers = (cbMarkers != nullptr) ? cbMarkers(node->data) : std::string{};
 
             // Show +/- when the node has children OR has unfetched children waiting to be
             // populated. `> 0` not `!= 0` — using `== 0` would put a '+' on every file.
             if (node->children.size() > 0 || node->hasUnfetchedChildren) {
                 if (node->isExpanded) {
-                    str = "-" + str;
+                    str = U"-" + str;
                 } else {
-                    str = "+" + str;
+                    str = U"+" + str;
                 }
             } else {
-                str = " " + str;
+                str = U" " + str;
             }
 
 

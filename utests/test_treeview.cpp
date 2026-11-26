@@ -26,6 +26,7 @@ DLL_EXPORT int test_treeview_markers(ITesting *t);
 DLL_EXPORT int test_treeview_relayout_keeps_scroll(ITesting *t);
 DLL_EXPORT int test_treeview_typetofind(ITesting *t);
 DLL_EXPORT int test_treeview_toggleexpanded(ITesting *t);
+DLL_EXPORT int test_treeview_utf8name(ITesting *t);
 }
 
 namespace {
@@ -234,15 +235,15 @@ DLL_EXPORT int test_treeview_markers(ITesting *t) {
     tree.Reflatten();
     TR_ASSERT(t, marked->markers == "C");
     TR_ASSERT(t, plain->markers.empty());
-    TR_ASSERT(t, marked->drawString == " a_long_file_name_1");
-    TR_ASSERT(t, folder->drawString == "+a_long_file_name_3");
+    TR_ASSERT(t, marked->drawString == U" a_long_file_name_1");
+    TR_ASSERT(t, folder->drawString == U"+a_long_file_name_3");
 
     // 20 columns: 19 fit, unless a marker needs room - itself, a space before it and a cell of air after it
     tree.SetViewRect(Rect(20, 10));
     tree.CallAdjustNodeDrawStrings();
-    TR_ASSERT(t, plain->drawString == " a_long_file_name_2");
+    TR_ASSERT(t, plain->drawString == U" a_long_file_name_2");
     TR_ASSERT(t, marked->drawString.length() + marked->indent < 20 - marked->markers.length() - 1);
-    TR_ASSERT(t, marked->drawString.find("...") != std::string::npos);
+    TR_ASSERT(t, marked->drawString.find(U"...") != std::u32string::npos);
 
     // No delegate: no markers
     TestTree bare;
@@ -347,5 +348,17 @@ DLL_EXPORT int test_treeview_toggleexpanded(ITesting *t) {
     // An empty tree has no active node - nothing to toggle
     TestTree empty;
     empty.ToggleExpanded();
+    return kTR_Pass;
+}
+
+// A name past ASCII is decoded, not drawn byte by byte: 'räksmörgås.h' showed as 'r  ksm  rg  s.h' (each å/ä/ö two
+// blank cells - the 'const char *' path draws a byte past 127 as a space). Found on Windows 2026-11-26, every platform
+DLL_EXPORT int test_treeview_utf8name(ITesting *t) {
+    TestTree tree;
+    tree.SetToStringDelegate([](int i) { return (i == 1) ? std::string("r\xc3\xa4ksm\xc3\xb6rg\xc3\xa5s.h") : std::to_string(i); });
+    auto node = tree.AddItem(1);
+    TR_ASSERT(t, node->drawString == U" r\u00e4ksm\u00f6rg\u00e5s.h");
+    // Its width is characters - the cells it takes
+    TR_ASSERT(t, node->drawString.length() == 13);
     return kTR_Pass;
 }

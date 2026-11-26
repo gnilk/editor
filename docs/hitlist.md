@@ -19,6 +19,17 @@ backend, in a sandbox HOME, and reads the screen back with its colours (`--list`
 ticked with `(scripted: <check>)` was ticked from that run, not by hand - it covers the editor, not the SDL backend's own
 keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49 fix).
 
+- **Windows, the window** (#81, phase 1 - `feature/windows-port`, the XPS, `C:\Users\gnilk\src\github.com\editor\cmake-build-windows-debug\goatedit.exe`)
+  - [x] Windows - opens at 300 % (3840x2400) sharp and at the right size, tree + highlighting + minimap, `räksmörgås.h` named
+    right, clicks land, typing, `Ctrl+S` (an LF file stays LF) (2026-11-26)
+  - [x] Windows - US layout: Alt+`[` / `]` cycle the panels, Alt+`{` / `}` switch the editor's tabs (2026-11-26)
+  - [ ] Windows - **AltGr** (§4.1, a Swedish / German layout - `Win+Space`): AltGr+7 8 9 0 `{ [ ] }`, AltGr+`+` `\`, AltGr+2 / 4
+    `@ $`, AltGr+`<` `|`, AltGr+E `€`, `~` (dead key) - the character, not a Ctrl+Alt shortcut. The user codes on US layout, so
+    this is for other users
+  - [ ] Windows - Alt+`{` / `}` in the workspace tree moves up / down: meant, or should it be the tabs there too?
+  - [ ] Windows - Alt+`\` does nothing (US layout) - bound to anything on Linux?
+  - [ ] Windows - the tree was scrolled one column sideways (every row's first character gone) after a resize right at start
+  - [ ] Mac - SDL3 now scales by the display scale (5ef8d147): on paper the same on a Mac - check font size, sharpness, clicks
 - **Build messages** (#52) - the terminal version scripted (`build_messages`: `cc` on a broken file, `F8` / `Shift+F8` / `Ctrl+F8`)
   - [ ] Linux [x] Mac - the window: `make` / `cmake --build cmake-build-debug` with an error in a file - "build: N errors, M warnings" on the status line when it ends; `F8` opens the first error at its line and column ("error 1/N"), again goes on (errors, then warnings), `Shift+F8` back; `Cmd/Ctrl+[` comes back from each
   - [ ] Linux [x] Mac - `Cmd/Ctrl+F8`: the list (the command and the counts in the caption), type to filter, Enter goes there, `F8` goes on from that one

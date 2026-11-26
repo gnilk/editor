@@ -4,9 +4,6 @@
 #include "Core/RuntimeConfig.h"
 #include "Core/UnicodeHelper.h"
 
-#ifdef GEDIT_MACOS
-#include "Core/macOS/MacOSFolderMonitor.h"
-#endif
 
 using namespace gedit;
 RuntimeConfig &RuntimeConfig::Instance() {
@@ -15,7 +12,7 @@ RuntimeConfig &RuntimeConfig::Instance() {
 }
 
 FolderMonitor &RuntimeConfig::GetFolderMonitor() {
-    return folderMonitor;
+    return *folderMonitor;
 }
 
 

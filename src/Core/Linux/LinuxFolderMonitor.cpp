@@ -24,6 +24,10 @@ using namespace gedit;
 static constexpr uint32_t kWatchMask = IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO | IN_CLOSE_WRITE |
                                        IN_DELETE_SELF | IN_MOVE_SELF | IN_ONLYDIR;
 
+FolderMonitor::Ref FolderMonitor::Create() {
+    return std::make_shared<LinuxFolderMonitor>();
+}
+
 FolderMonitor::MonitorPoint::Ref LinuxFolderMonitor::CreateMonitorPoint(const std::filesystem::path &pathToMonitor) {
     return LinuxFolderMonitorPoint::Create(pathToMonitor);
 }

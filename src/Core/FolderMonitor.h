@@ -103,6 +103,12 @@ namespace gedit {
         };
 
     public:
+        using Ref = std::shared_ptr<FolderMonitor>;
+
+        // The platform's monitor. Defined by the platform's source file (macOS/MacOSFolderMonitor.cpp,
+        // Linux/LinuxFolderMonitor.cpp), so this header names no platform class and the build picks it
+        static Ref Create();
+
         FolderMonitor() = default;
         virtual ~FolderMonitor() = default;
 

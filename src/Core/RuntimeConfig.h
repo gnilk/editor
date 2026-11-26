@@ -13,12 +13,6 @@
 #include "Core/Plugins/PluginCommand.h"
 #include "Core/FolderMonitor.h"
 
-#ifdef GEDIT_MACOS
-#include "Core/macOS/MacOSFolderMonitor.h"
-#elif defined(GEDIT_LINUX)
-#include "Core/Linux/LinuxFolderMonitor.h"
-#endif
-
 
 #include <map>
 #include <thread>
@@ -125,11 +119,8 @@ namespace gedit {
         RuntimeConfig() = default;
     private:
         // These should all be ref's...
-#ifdef GEDIT_MACOS
-        MacOSFolderMonitor folderMonitor;
-#elif defined(GEDIT_LINUX)
-        LinuxFolderMonitor folderMonitor;
-#endif
+        // The platform's (FolderMonitor::Create)
+        FolderMonitor::Ref folderMonitor = FolderMonitor::Create();
         KeyboardDriverBase::Ref keyboard = nullptr;
         ScreenBase::Ref screen = nullptr;
         ViewBase *rootView = nullptr;

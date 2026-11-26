@@ -27,6 +27,10 @@ static void glbFSNotifyTrampoline(
 );
 
 
+FolderMonitor::Ref FolderMonitor::Create() {
+    return std::make_shared<MacOSFolderMonitor>();
+}
+
 FolderMonitor::MonitorPoint::Ref MacOSFolderMonitor::CreateMonitorPoint(const std::filesystem::path &pathToMonitor) {
     return MacOSFolderMonitorPoint::Create(pathToMonitor);
 }

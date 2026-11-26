@@ -14,11 +14,6 @@
 #include <vector>
 #include "Core/FolderMonitor.h"
 #include "Core/PathUtil.h"
-#if defined(GEDIT_MACOS)
-#include "Core/macOS/MacOSFolderMonitor.h"
-#elif defined(GEDIT_LINUX)
-#include "Core/Linux/LinuxFolderMonitor.h"
-#endif
 
 using namespace gedit;
 using namespace std::chrono_literals;
@@ -37,11 +32,7 @@ DLL_EXPORT int test_foldermonitor(ITesting *t) {
 #if defined(GEDIT_MACOS) || defined(GEDIT_LINUX)
 
 static FolderMonitor::MonitorPoint::Ref CreatePlatformPoint(const std::filesystem::path &root) {
-#if defined(GEDIT_MACOS)
-    return MacOSFolderMonitorPoint::Create(root);
-#else
-    return LinuxFolderMonitorPoint::Create(root);
-#endif
+    return FolderMonitor::Create()->CreateMonitorPoint(root);
 }
 
 // Posts arrive on the stream's queue; the test thread plays the main thread

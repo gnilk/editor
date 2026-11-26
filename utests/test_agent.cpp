@@ -7,6 +7,8 @@
 #include <filesystem>
 #include <fstream>
 #include <testinterface.h>
+#include <algorithm>
+#include <cctype>
 
 #include "Core/Agent/AgentIntegrations.h"
 #include "Core/Agent/AgentQuestion.h"
@@ -152,7 +154,10 @@ DLL_EXPORT int test_agent_find_executable(ITesting *t) {
     }
     auto winPath = (winDir / "a").string() + ";;" + (winDir / "b").string();
     auto winFound = Platform::FindExecutable("tool", winPath, {});
-    TR_ASSERT(t, winFound.has_value() && (winFound->filename() == "tool.cmd"));
+    // PATHEXT's spelling (.CMD) - file names on Windows don't care about case
+    auto winName = winFound.has_value() ? winFound->filename().string() : std::string();
+    std::transform(winName.begin(), winName.end(), winName.begin(), [](unsigned char ch) { return (char)std::tolower(ch); });
+    TR_ASSERT(t, winName == "tool.cmd");
     TR_ASSERT(t, !Platform::FindExecutable("other", winPath, {}).has_value());
     TR_ASSERT(t, !Platform::FindExecutable("b\\tool", winDir.string(), {}).has_value());
     std::filesystem::remove_all(winDir);

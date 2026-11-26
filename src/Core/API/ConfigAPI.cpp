@@ -15,6 +15,7 @@
 #include "Core/Editor.h"
 #include "EditorAPI.h"
 #include "ConfigAPI.h"
+#include "Core/Platform.h"
 
 using namespace gedit;
 
@@ -466,25 +467,9 @@ static bool WriteFileAtomic(const std::filesystem::path &linkOrPath, const std::
         outError = ec.message();
         return false;
     }
-    auto tmpPath = path;
-    tmpPath += ".tmp";
-    {
-        std::ofstream file(tmpPath, std::ios::binary | std::ios::trunc);
-        if (!file.is_open()) {
-            outError = "can't create " + tmpPath.string();
-            return false;
-        }
-        file << text;
-        file.flush();
-        if (!file.good()) {
-            outError = "write failed";
-            return false;
-        }
-    }
-    std::filesystem::rename(tmpPath, path, ec);
-    if (ec) {
-        std::filesystem::remove(tmpPath, ec);
-        outError = "rename failed";
+    // The platform's (fsync + rename; Windows: MoveFileEx over the file, retried while antivirus holds it)
+    if (!Platform::WriteFileAtomic(path, text)) {
+        outError = "can't write " + path.string();
         return false;
     }
     return true;

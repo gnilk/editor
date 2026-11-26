@@ -52,13 +52,14 @@ std::string Platform::GetEnvOr(const std::string &name, const std::string &fallb
     return *value;
 }
 
-// Both the process environment (GetEnvironmentVariable, what a child gets) and the CRT's copy (getenv), so a library
-// that reads either sees the same
+// Both the CRT's copy (getenv) and the process environment (GetEnvironmentVariable, what a child gets, what GetEnv
+// reads). The CRT's first: it can't hold an empty value - '_wputenv_s(name, L"")' removes the variable, from the process
+// environment too - so the process environment is set after it, empty values included
 void Platform::SetEnv(const std::string &name, const std::string &value) {
     auto wideName = Widen(name);
     auto wideValue = Widen(value);
-    SetEnvironmentVariableW(wideName.c_str(), wideValue.c_str());
     _wputenv_s(wideName.c_str(), wideValue.c_str());
+    SetEnvironmentVariableW(wideName.c_str(), wideValue.c_str());
 }
 
 void Platform::UnsetEnv(const std::string &name) {

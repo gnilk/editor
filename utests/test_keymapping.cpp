@@ -6,6 +6,7 @@
 #include "Core/API/EditorAPI.h"
 #include "Core/KeyMapping.h"
 #include "Core/KeyMappingCache.h"
+#include "Core/Platform.h"
 
 using namespace gedit;
 
@@ -644,12 +645,9 @@ DLL_EXPORT int test_keymapping_mouse_notinherited(ITesting *t) {
 // Hitlist #48: the terminal version on macOS takes the Linux keymaps (a terminal never sends Cmd) - the config section
 // is plain data the backend glue sets; the cache is cleared after it
 DLL_EXPORT int test_keymapping_section(ITesting *t) {
+    // The platform's own section: macos / linux / windows
     auto osSection = KeyMapping::ConfigSection();
-#ifdef GEDIT_MACOS
-    TR_ASSERT(t, osSection == "macos");
-#else
-    TR_ASSERT(t, osSection == "linux");
-#endif
+    TR_ASSERT(t, osSection == Platform::Name());
     KeyMapping::SetConfigSection("linux");
     KeyMappingCache::Instance().Clear();
     auto keymap = KeyMappingCache::Instance().GetOrLoad("default_keymap");

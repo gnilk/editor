@@ -1212,3 +1212,21 @@ hidden when it has no tabs (the status row then at the window's foot).
 **Tests:** `test_layout` with a right panel: the three columns fill the width, the right panel spans the upper part, both
 splitters clamped; with no `panel_right` tabs the tree is today's. `test_session`: both panels' tabs round-trip, an older
 session restores all to the bottom. Promote finds the right panel's target first.
+
+## 20. Note - a new app icon, after macOS's icon rules (not scheduled)
+
+**The problem (user, 2026-11-26):** tabbing through open apps (Cmd+Tab), GoatEdit always looks picked. The icon
+(`Assets/CMake/GoatEdit.icns`, `Assets/Graphics/com.gnilk.goatedit.png` / `.svg`, from `IconBase_Layers_1024x1024.png`) has
+a bright green rounded border - the same thing the switcher draws around the selected app. It is only the picture.
+
+**The new one:** based on `Assets/Graphics/lillen_orig_24bit_alpha.png` (256x256, alpha) - the small grey pixel goat - and
+following macOS's app icon rules (Big Sur and later):
+- The standard rounded-square plate on the 1024 grid (about 824 x 824, centred, the rest transparent) with the system's
+  soft drop shadow - the shape every other app has, so nothing reads as a selection ring. No coloured border.
+- One calm plate colour behind the goat (a dark editor grey, or a light neutral) - not green, nothing that glows.
+- The goat as the one motif, centred, filling about two thirds of the plate. Pixel art scales by whole steps with
+  nearest-neighbour (256 -> 768 is x3) so the pixels stay crisp; or redraw it as a vector in the same pose.
+- Legible at 16 and 32 px (the Dock's smallest, Finder lists): check those sizes, not only 1024.
+
+**Outputs:** the `.icns` (all sizes, `iconutil`), the Linux `.svg` + 512 `.png` (`Assets/Graphics/com.gnilk.goatedit.*`), and a
+Windows `.ico` for the port's packaging (`windows-port.md` §7, phase 5). `Assets/Graphics/convert.sh` makes the sizes today.

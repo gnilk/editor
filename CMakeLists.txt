@@ -644,15 +644,17 @@ elseif (GEDIT_BUILD_SDL2)
 endif()
 
 # ---------------------------------------------------------------------------
-# graphics_gansisrc — ANSI/TTY (gansi) backend. Coexists with SDL (not XOR), so these compile into
-# both goatedit and utests whenever GEDIT_BUILD_ANSI is ON. Links the `gansi` library (added above).
+# graphics_gansisrc — the Gansi screen. Coexists with SDL (not XOR). Built everywhere - the headless screen draws
+# into one (GEDIT_HAVE_GANSI); the screen on the terminal the editor runs in (GansiScreenPosix.cpp, the ANSI backend)
+# only where GEDIT_BUILD_ANSI is ON. Links the `gansi` library (added above).
 # ---------------------------------------------------------------------------
+list(APPEND graphics_gansisrc src/Core/Graphics/Gansi/GansiScreen.cpp src/Core/Graphics/Gansi/GansiScreen.h)
+list(APPEND graphics_gansisrc src/Core/Graphics/Gansi/GansiWindow.cpp src/Core/Graphics/Gansi/GansiWindow.h)
+list(APPEND graphics_gansisrc src/Core/Graphics/Gansi/GansiDrawContext.cpp src/Core/Graphics/Gansi/GansiDrawContext.h)
+list(APPEND graphics_gansisrc src/Core/Graphics/Gansi/GansiKeyboardDriver.cpp src/Core/Graphics/Gansi/GansiKeyboardDriver.h)
+list(APPEND graphics_gansisrc src/Core/Graphics/Gansi/GansiTranslate.h)
 if (GEDIT_BUILD_ANSI)
-    list(APPEND graphics_gansisrc src/Core/Graphics/Gansi/GansiScreen.cpp src/Core/Graphics/Gansi/GansiScreen.h)
-    list(APPEND graphics_gansisrc src/Core/Graphics/Gansi/GansiWindow.cpp src/Core/Graphics/Gansi/GansiWindow.h)
-    list(APPEND graphics_gansisrc src/Core/Graphics/Gansi/GansiDrawContext.cpp src/Core/Graphics/Gansi/GansiDrawContext.h)
-    list(APPEND graphics_gansisrc src/Core/Graphics/Gansi/GansiKeyboardDriver.cpp src/Core/Graphics/Gansi/GansiKeyboardDriver.h)
-    list(APPEND graphics_gansisrc src/Core/Graphics/Gansi/GansiTranslate.h)
+    list(APPEND graphics_gansisrc src/Core/Graphics/Gansi/GansiScreenPosix.cpp)
 endif()
 
 

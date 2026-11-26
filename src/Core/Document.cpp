@@ -320,7 +320,7 @@ size_t Document::GetSearchHitIndex() {
 }
 
 bool Document::LoadData(const std::filesystem::path &pathName) {
-    logger->Debug("LoadData, start: %s", pathName.c_str());
+    logger->Debug("LoadData, start: %s", pathName.string().c_str());
     if (!textBuffer->Load(pathName)) {
         return false;
     }

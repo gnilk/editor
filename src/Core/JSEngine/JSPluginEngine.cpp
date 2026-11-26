@@ -56,7 +56,7 @@ bool JSPluginEngine::Initialize() {
     auto pluginRoot = Config::Instance()["main"].GetStr("plugin_directory","");
     auto pluginConfigFile =  std::filesystem::path(pluginRoot).append("jsplugs.yml");
 
-    if (!config.LoadConfig(pluginConfigFile.c_str())) {
+    if (!config.LoadConfig(pluginConfigFile.string())) {
         exit(1);
     }
 
@@ -245,7 +245,7 @@ static void *LoadFile(const std::string &filename, size_t *outSz) {
     void *buffer = calloc(1,szFile + 1);
 
 
-    auto f = fopen(path.c_str(), "r");
+    auto f = fopen(path.string().c_str(), "r");
     fread(buffer, szFile, 1, f);
     fclose(f);
     *outSz = szFile;

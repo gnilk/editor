@@ -1034,14 +1034,14 @@ bool TextBuffer::DoSave(const std::filesystem::path &pathName, bool skipChangeCh
         if (!TextEncoding::Encode(text, saveEncoding, data, idxFailed) || !TextEncoding::Encode(endingText, saveEncoding, data, idxFailed)) {
             auto message = fmt::format("Not saved: line {} has U+{:04X}, which {} can't hold - '.encoding utf-8' converts the file",
                                        idxLine + 1, (uint32_t)text[idxFailed], TextEncoding::Name(saveEncoding));
-            logger->Error("%s (%s)", message.c_str(), pathName.c_str());
+            logger->Error("%s (%s)", message.c_str(), pathName.string().c_str());
             RuntimeConfig::Instance().OutputConsole()->WriteLine(UnicodeHelper::utf8to32(message));
             return false;
         }
     }
 
-    logger->Debug("Saving file: %s (%s)", pathName.c_str(), TextEncoding::Name(saveEncoding));
-    auto f = fopen(pathName.c_str(), "wb");
+    logger->Debug("Saving file: %s (%s)", pathName.string().c_str(), TextEncoding::Name(saveEncoding));
+    auto f = fopen(pathName.string().c_str(), "wb");
     if (f == nullptr) {
         logger->Error("Failed to save buffer, err: %d:%s", errno, strerror(errno));
 
@@ -1054,7 +1054,7 @@ bool TextBuffer::DoSave(const std::filesystem::path &pathName, bool skipChangeCh
     bool isWritten = fwrite(data.data(), 1, data.size(), f) == data.size();
     isWritten = (fclose(f) == 0) && isWritten;
     if (!isWritten) {
-        logger->Error("Failed to write '%s', err: %d:%s", pathName.c_str(), errno, strerror(errno));
+        logger->Error("Failed to write '%s', err: %d:%s", pathName.string().c_str(), errno, strerror(errno));
         RuntimeConfig::Instance().OutputConsole()->WriteLine(U"Unable to save file - the write failed");
         return false;
     }

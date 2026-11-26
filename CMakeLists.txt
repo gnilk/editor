@@ -80,7 +80,7 @@ include(cmake/CMakeDeps.cmake)
 # ---------------------------------------------------------------------------
 if (WIN32)
     # gansi talks to a POSIX terminal (termios); a Windows console backend is later (docs/windows-port.md)
-    option(GEDIT_BUILD_ANSI "Build the ANSI/TTY (gansi) backend" OFF)
+    set(GEDIT_BUILD_ANSI OFF CACHE BOOL "Build the ANSI/TTY (gansi) backend" FORCE)
 else()
     option(GEDIT_BUILD_ANSI "Build the ANSI/TTY (gansi) backend" ON)
 endif()

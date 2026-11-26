@@ -282,7 +282,7 @@ Workspace::Node::Ref Workspace::NewDocument(const std::string &name) {
     activeFolderNode = folderNode;
 
     if (fs::is_directory(pathFile)) {
-        logger->Error("NewDocument, '%s' is a folder", pathFile.c_str());
+        logger->Error("NewDocument, '%s' is a folder", pathFile.string().c_str());
         return nullptr;
     }
     // An existing FILE opens instead - an empty buffer saved over it would wipe it
@@ -485,7 +485,7 @@ Workspace::Node::Ref Workspace::EnsureFolderNode(const std::filesystem::path &di
             fs::create_directory(folderPath, ec);
             next = NewFolderNode(node, folderPath);
             if (next == nullptr) {
-                logger->Error("Unable to create folder %s", folderPath.c_str());
+                logger->Error("Unable to create folder %s", folderPath.string().c_str());
                 return nullptr;
             }
             next->SetIsScanned(true);       // new and empty - nothing to scan
@@ -695,7 +695,7 @@ void Workspace::StartFolderMonitor(ProjectRoot::Ref projectRoot) {
         }
     });
     if (!projectRoot->StartFolderMonitor(monitor, monitorPostToMain)) {
-        logger->Error("Unable to start the folder monitor for: %s", projectRoot->GetRootPath().c_str());
+        logger->Error("Unable to start the folder monitor for: %s", projectRoot->GetRootPath().string().c_str());
     }
 }
 

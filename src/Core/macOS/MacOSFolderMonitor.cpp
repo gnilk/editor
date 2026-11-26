@@ -68,7 +68,7 @@ bool MacOSFolderMonitorPoint::Start() {
     );
     CFRelease(cfPathsToWatch);
     if (fsEventStream == nullptr) {
-        logger->Error("Unable to create the event stream for: %s", pathToMonitor.c_str());
+        logger->Error("Unable to create the event stream for: %s", pathToMonitor.string().c_str());
         return false;
     }
 
@@ -80,11 +80,11 @@ bool MacOSFolderMonitorPoint::Start() {
     // Running before the stream starts - an event may arrive before FSEventStreamStart returns
     isRunning = true;
     if (!FSEventStreamStart(fsEventStream)) {
-        logger->Error("Unable to start monitoring for path: %s", pathToMonitor.c_str());
+        logger->Error("Unable to start monitoring for path: %s", pathToMonitor.string().c_str());
         Stop();
         return false;
     }
-    logger->Debug("Monitoring: %s", pathToMonitor.c_str());
+    logger->Debug("Monitoring: %s", pathToMonitor.string().c_str());
     return true;
 }
 
@@ -118,7 +118,7 @@ void MacOSFolderMonitorPoint::SetOSExclusionPaths() {
     }
     if (!FSEventStreamSetExclusionPaths(fsEventStream, cfPathsToExclude)) {
         auto logger = gnilk::Logger::GetLogger("FolderMonitor");
-        logger->Warning("Unable to set the exclusion paths for: %s", pathToMonitor.c_str());
+        logger->Warning("Unable to set the exclusion paths for: %s", pathToMonitor.string().c_str());
     }
     CFRelease(cfPathsToExclude);
 }

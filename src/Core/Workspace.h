@@ -458,7 +458,7 @@ namespace gedit {
                               const std::filesystem::path path, const std::string &rootName) {
 
                 auto logger = gnilk::Logger::GetLogger("Workspace");
-                logger->Debug("ProjectRoot '%s' created @ cwd: %s", rootName.c_str(), path.c_str());
+                logger->Debug("ProjectRoot '%s' created @ cwd: %s", rootName.c_str(), path.string().c_str());
 
                 auto ref = std::make_shared<ProjectRoot>(reconcileHandler, changedHandler, path, rootName);
 

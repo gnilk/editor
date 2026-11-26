@@ -50,9 +50,9 @@ bool JSPluginCommand::TryLoad() {
     auto pluginRoot = Config::Instance()["main"].GetStr("plugin_directory","");
     auto pluginScriptFile =  std::filesystem::path(pluginRoot).append(scriptFile);
 
-    logger->Debug("  Loading JS file from: %s", pluginScriptFile.c_str());
+    logger->Debug("  Loading JS file from: %s", pluginScriptFile.string().c_str());
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
-    scriptData = assetLoader.LoadTextAsset(pluginScriptFile);
+    scriptData = assetLoader.LoadTextAsset(pluginScriptFile.string());
     if (scriptData == nullptr) {
         logger->Error("Unable to load file!");
         return false;

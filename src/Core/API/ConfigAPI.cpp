@@ -312,7 +312,7 @@ ConfigAPI::Result ConfigAPI::Edit(kLevel level) {
         }
     }
     auto editorApi = Editor::Instance().GetGlobalAPIObject<EditorAPI>();
-    if ((editorApi == nullptr) || (editorApi->LoadDocument(path.c_str()) == nullptr)) {
+    if ((editorApi == nullptr) || (editorApi->LoadDocument(path.string().c_str()) == nullptr)) {
         result.lines.push_back("Unable to open " + path.string());
         return result;
     }

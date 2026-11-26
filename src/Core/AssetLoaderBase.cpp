@@ -26,16 +26,16 @@ static std::unordered_map<AssetLoaderBase::kLocationType, std::string> locTypeTo
 bool AssetLoaderBase::AddSearchPath(const std::filesystem::path &path, kLocationType locationType) {
     auto logger = gnilk::Logger::GetLogger("AssetLoader");
     if (!std::filesystem::is_directory(path)) {
-        logger->Debug("Path '%s' is not directory, skipping!", path.c_str());
+        logger->Debug("Path '%s' is not directory, skipping!", path.string().c_str());
         return false;
     }
-    logger->Debug("AddSearchPath (%s): %s",locTypeToString[locationType].c_str(), path.c_str());
+    logger->Debug("AddSearchPath (%s): %s",locTypeToString[locationType].c_str(), path.string().c_str());
 
     if (path.is_relative()) {
-        logger->Debug("Path '%s' is relative", path.c_str());
+        logger->Debug("Path '%s' is relative", path.string().c_str());
     }
     auto absPath = std::filesystem::absolute(path);
-    logger->Debug("Adding absolute: '%s'", absPath.c_str());
+    logger->Debug("Adding absolute: '%s'", absPath.string().c_str());
     baseSearchPaths.push_back({locationType, absPath});
     SortSearchPaths();
     return true;
@@ -144,7 +144,7 @@ AssetLoaderBase::Asset::Ref AssetLoaderBase::DoLoadAsset(const SearchPath &searc
         return {};
     }
     auto logger = gnilk::Logger::GetLogger("AssetLoader");
-    logger->Debug("Loading Asset: %s", pathName.c_str());
+    logger->Debug("Loading Asset: %s", pathName.string().c_str());
 
 
     Asset::Ref asset = Asset::Create(pathName);
@@ -158,7 +158,7 @@ AssetLoaderBase::Asset::Ref AssetLoaderBase::DoLoadAsset(const SearchPath &searc
     inputStream.close();
 
 //    auto logger = gnilk::Logger::GetLogger("AssetLoader");
-//    logger->Info("Ok loaded %zu bytes from '%s'",szFile, pathName.c_str());
+//    logger->Info("Ok loaded %zu bytes from '%s'",szFile, pathName.string().c_str());
 
 
     return asset;
@@ -167,12 +167,12 @@ AssetLoaderBase::Asset::Ref AssetLoaderBase::DoLoadAsset(const SearchPath &searc
 bool AssetLoaderBase::CheckFilePath(const std::filesystem::path filePath) {
     if (!std::filesystem::exists(filePath)) {
         auto logger = gnilk::Logger::GetLogger("AssetLoader");
-        logger->Error("File not found: '%s'",filePath.c_str());
+        logger->Error("File not found: '%s'",filePath.string().c_str());
         return {};
     }
     if (!std::filesystem::is_regular_file(filePath)) {
         auto logger = gnilk::Logger::GetLogger("AssetLoader");
-        logger->Error("File is not a regular file: '%s'",filePath.c_str());
+        logger->Error("File is not a regular file: '%s'",filePath.string().c_str());
         return {};
     }
     return true;

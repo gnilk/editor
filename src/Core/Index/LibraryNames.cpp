@@ -113,7 +113,7 @@ LibraryNames::Ref LibraryNames::Load(const std::optional<std::filesystem::path> 
         std::stringstream yaml;
         yaml << stream.rdbuf();
         if (!libraryNames->Add(yaml.str())) {
-            logger->Error("Can't load library names from '%s'", path.c_str());
+            logger->Error("Can't load library names from '%s'", path.string().c_str());
         }
     }
     return libraryNames;

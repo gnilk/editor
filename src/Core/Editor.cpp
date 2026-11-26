@@ -247,15 +247,15 @@ bool Editor::Initialize(int argc, const char **argv) {
     logger->Debug("*********** Config file was loaded, pre-boot completed **************");
 
     if (cwd != cwdBeforeRelocation) {
-        logger->Warning("Working Directory (%s) outside of home directory, changed to home-root (%s)", cwdBeforeRelocation.c_str(), pathHome.c_str());
+        logger->Warning("Working Directory (%s) outside of home directory, changed to home-root (%s)", cwdBeforeRelocation.string().c_str(), pathHome.string().c_str());
         Notice(fmt::format("started outside your home directory ('{}') - working in '{}'", cwdBeforeRelocation.string(), pathHome.string()));
     }
-    logger->Debug("CWD is: %s", cwd.c_str());
+    logger->Debug("CWD is: %s", cwd.string().c_str());
     if (projectDir.has_value()) {
-        logger->Debug("Project dir: %s", projectDir->c_str());
+        logger->Debug("Project dir: %s", projectDir->string().c_str());
     }
     for (auto &unusedDir : UnusedProjectDirs(pendingFiles, cwd, pathHome)) {
-        logger->Warning("Not a single-folder launch - project settings in '%s' not used", unusedDir.c_str());
+        logger->Warning("Not a single-folder launch - project settings in '%s' not used", unusedDir.string().c_str());
         Notice(fmt::format("not a single-folder launch - project settings in '{}' not used", unusedDir.string()));
     }
 
@@ -369,11 +369,11 @@ void Editor::ConfigureAssetSearchPaths() {
         systemDir = argAssetDir;
     } else {
         auto exeDir = InstallPaths::ExecutableDir();
-        logger->Debug("Executable dir: %s", exeDir.c_str());
+        logger->Debug("Executable dir: %s", exeDir.string().c_str());
         systemDir = InstallPaths::FindSystemAssetDir(InstallPaths::SystemAssetCandidates(exeDir, userDirs.systemDataDirs));
     }
     if (systemDir.has_value()) {
-        logger->Debug("System assets: %s", systemDir->c_str());
+        logger->Debug("System assets: %s", systemDir->string().c_str());
         assetLoader.AddSearchPath(*systemDir, AssetLoaderBase::kLocationType::kSystem);
     } else {
         logger->Error("No system assets found next to the executable or in $XDG_DATA_DIRS");
@@ -386,7 +386,7 @@ void Editor::ConfigureAssetSearchPaths() {
         }
         if (i > 0) {
             logger->Warning("Legacy user dir '%s' is still read - move its files to '%s'",
-                            assetDirs[i].c_str(), assetDirs.front().c_str());
+                            assetDirs[i].string().c_str(), assetDirs.front().string().c_str());
             Notice(fmt::format("the old user dir '{}' is still read - move its files to '{}'", assetDirs[i].string(), assetDirs.front().string()));
         }
     }
@@ -1041,16 +1041,17 @@ void Editor::ConfigureLogger() {
 
     auto logPath = UserDirs::Current().logDir;
     if (!CheckCreateDirectory(logPath)) {
-        logger->Error("Unable to create log output directory '%s'", logPath.c_str());
+        logger->Error("Unable to create log output directory '%s'", logPath.string().c_str());
         return;
     }
 
     logPath /= logFileName;
     if (sinkName == "filesink") {
         auto fileSink = gnilk::LogFileSink::Create();
-        const std::vector<std::string_view> sinkArgv={"autoflush", "file", logPath.c_str()};
+        auto logFile = logPath.string();
+        const std::vector<std::string_view> sinkArgv={"autoflush", "file", logFile};
 
-        logger->Info("Logger filesink with logfile; %s", logPath.c_str());
+        logger->Info("Logger filesink with logfile; %s", logPath.string().c_str());
 
         gnilk::Logger::AddSink(fileSink, sinkName, sinkArgv);
         // Remove the console sink (it is auto-created in debug-mode)
@@ -2012,12 +2013,12 @@ bool Editor::OpenDocumentOrFolder(const std::string &fileOrFolder) {
     }
     if (std::filesystem::is_directory(pathName)) {
         logger->Debug("Opening folder: %s", fileOrFolder.c_str());
-        if (!workspace->OpenFolder(pathName)) {
+        if (!workspace->OpenFolder(pathName.string())) {
             logger->Error("Unable to open folder: %s", fileOrFolder.c_str());
             return false;
         }
         if (pathName.is_absolute()) {
-            logger->Debug("Changing directory to: %s", pathName.c_str());
+            logger->Debug("Changing directory to: %s", pathName.string().c_str());
             std::filesystem::current_path(pathName);
         }
 

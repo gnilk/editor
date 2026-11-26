@@ -50,12 +50,12 @@ bool LinuxFolderMonitorPoint::Start() {
 
     WatchTree(pathToMonitor);
     if (watches.empty()) {
-        logger->Error("Unable to watch: %s", pathToMonitor.c_str());
+        logger->Error("Unable to watch: %s", pathToMonitor.string().c_str());
         close(iNotifyFd);
         iNotifyFd = -1;
         return false;
     }
-    logger->Debug("Monitoring %zu folders below: %s", watches.size(), pathToMonitor.c_str());
+    logger->Debug("Monitoring %zu folders below: %s", watches.size(), pathToMonitor.string().c_str());
 
     isQuitRequested = false;
     isRunning = true;
@@ -185,7 +185,7 @@ void LinuxFolderMonitorPoint::AddWatch(const std::filesystem::path &folder) {
             isWatchLimitReported = true;
             logger->Warning("inotify watch limit reached - changes below some folders are not seen (fs.inotify.max_user_watches)");
         } else if (errno != ENOSPC) {
-            logger->Debug("Unable to watch '%s': %s", folder.c_str(), strerror(errno));
+            logger->Debug("Unable to watch '%s': %s", folder.string().c_str(), strerror(errno));
         }
         return;
     }

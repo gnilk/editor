@@ -2,6 +2,8 @@
 // Created by gnilk on 09.05.23.
 //
 
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <optional>
 #include <unordered_map>
@@ -15,6 +17,13 @@ namespace fs = std::filesystem;
 using namespace gedit;
 
 static const std::string cfgSectionName = "workspaceview";
+
+// As strcasecmp(a, b) < 0 - ASCII letters without case, byte by byte (strcasecmp isn't on Windows)
+static bool IsLessIgnoringCase(const std::string &a, const std::string &b) {
+    return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(), [](unsigned char x, unsigned char y) {
+        return std::tolower(x) < std::tolower(y);
+    });
+}
 
 static bool IsStringExcluded(const std::string &str, const std::vector<std::string> &excludePrefixes) {
     if (excludePrefixes.empty()) return false;
@@ -51,9 +60,9 @@ static void FillTreeView(WorkspaceView::TreeRef tree, WorkspaceView::TreeNodeRef
 
             // b Must be folder...
             if (aIsFolder)
-                return (strcasecmp(a->GetDisplayName().c_str(), b->GetDisplayName().c_str()) < 0);
+                return IsLessIgnoringCase(a->GetDisplayName(), b->GetDisplayName());
 
-            return (strcasecmp(a->GetDisplayName().c_str(), b->GetDisplayName().c_str()) < 0);
+            return IsLessIgnoringCase(a->GetDisplayName(), b->GetDisplayName());
         });
 
 

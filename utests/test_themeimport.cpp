@@ -73,8 +73,8 @@ static bool Import(const std::string &text, ThemeColors &colors) {
 }
 
 static bool IsColor(const ColorRGBA &color, int red, int green, int blue) {
-    auto near = [](float value, int expected) { return std::abs(value * 255.0f - (float)expected) < 0.5f; };
-    return near(color.R(), red) && near(color.G(), green) && near(color.B(), blue);
+    auto isNear = [](float value, int expected) { return std::abs(value * 255.0f - (float)expected) < 0.5f; };
+    return isNear(color.R(), red) && isNear(color.G(), green) && isNear(color.B(), blue);
 }
 
 DLL_EXPORT int test_themeimport(ITesting *t) {

@@ -747,7 +747,7 @@ endif()
 
 add_library(utests SHARED ${coresrc} ${uisrc} ${editorsrc} ${platformsrc} ${graphics_sdlsrc} ${graphics_gansisrc} ${jsapi} ${duktape} ${utestsrc})
 if (MSVC)
-    target_compile_options(utests PUBLIC -DTRUN_USE_V1)
+    target_compile_options(utests PUBLIC -DTRUN_USE_V1 "$<$<COMPILE_LANGUAGE:CXX>:/FI${CMAKE_CURRENT_SOURCE_DIR}/utests/WinTestPrelude.h>")
 else()
     target_compile_options(utests PUBLIC -fPIC -D TRUN_USE_V1)
 endif()

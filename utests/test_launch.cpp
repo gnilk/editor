@@ -6,6 +6,7 @@
 #include "Core/Editor.h"
 #include "Core/XDGEnvironment.h"
 #include "Core/StartupNotices.h"
+#include "Core/Platform.h"
 
 using namespace gedit;
 
@@ -49,7 +50,7 @@ DLL_EXPORT int test_launch_defaults(ITesting *t) {
 // The launch marker is read once and taken out of the environment, so the editor's shell - and a trun or goatedit
 // run from it - is not "started from the UI"
 DLL_EXPORT int test_launch_take_started_from_ui(ITesting *t) {
-    setenv("GEDIT_MACOS_STARTED_FROM_UI", "TRUE", 1);
+    Platform::SetEnv("GEDIT_MACOS_STARTED_FROM_UI", "TRUE");
 #ifdef GEDIT_MACOS
     TR_ASSERT(t, Editor::TakeStartedFromUI());
 #else

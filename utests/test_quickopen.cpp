@@ -100,8 +100,8 @@ DLL_EXPORT int test_quickopen_ties(ITesting *t) {
     TR_ASSERT(t, (Ranked(open, U"doc")[0] == "src/Core/DocumentViewState.cpp"));
 
     // The active file in 'utests': its folder first among the word-start matches
-    auto near = QuickOpenModal::EntriesOf(SnapshotOf({"a/test_x.cpp", "utests/test_y.cpp", "b/test_z.cpp"}), "/proj/utests/x.cpp", {});
-    TR_ASSERT(t, (Ranked(near, U"test")[0] == "utests/test_y.cpp"));
+    auto nearby = QuickOpenModal::EntriesOf(SnapshotOf({"a/test_x.cpp", "utests/test_y.cpp", "b/test_z.cpp"}), "/proj/utests/x.cpp", {});
+    TR_ASSERT(t, (Ranked(nearby, U"test")[0] == "utests/test_y.cpp"));
     return kTR_Pass;
 }
 

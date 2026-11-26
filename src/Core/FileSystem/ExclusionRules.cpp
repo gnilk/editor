@@ -2,12 +2,11 @@
 // Excludes + '.gitignore' - see ExclusionRules.h
 //
 
-#include <fnmatch.h>
-
 #include <cstdlib>
 #include <fstream>
 #include <mutex>
 #include <sstream>
+#include <string_view>
 
 #include "ExclusionRules.h"
 #include "Core/UserDirs.h"
@@ -65,6 +64,78 @@ bool ExclusionRules::ParseLine(const std::string &line, Pattern &outPattern) {
     return !outPattern.segments.empty();
 }
 
+// One path segment against a glob, as fnmatch(pattern, text, 0) does it: '*' any run, '?' any one char, '[...]' a set
+// ('!' or '^' first negates, 'a-z' ranges, a ']' first is literal), '\\' escapes. Ours, so every platform matches alike.
+static bool GlobMatch(std::string_view pattern, std::string_view text) {
+    size_t idxPattern = 0;
+    size_t idxText = 0;
+    size_t idxStar = std::string_view::npos;
+    size_t idxStarText = 0;
+    while (idxText < text.size()) {
+        bool isMatch = false;
+        size_t idxNext = idxPattern + 1;
+        if (idxPattern < pattern.size()) {
+            auto ch = pattern[idxPattern];
+            if (ch == '*') {
+                idxStar = idxPattern++;
+                idxStarText = idxText;
+                continue;
+            }
+            if (ch == '?') {
+                isMatch = true;
+            } else if (ch == '[') {
+                size_t idx = idxPattern + 1;
+                bool isNegated = (idx < pattern.size()) && ((pattern[idx] == '!') || (pattern[idx] == '^'));
+                if (isNegated) {
+                    idx++;
+                }
+                bool isInSet = false;
+                bool isFirst = true;
+                while ((idx < pattern.size()) && ((pattern[idx] != ']') || isFirst)) {
+                    auto low = pattern[idx];
+                    auto high = low;
+                    if (((idx + 2) < pattern.size()) && (pattern[idx + 1] == '-') && (pattern[idx + 2] != ']')) {
+                        high = pattern[idx + 2];
+                        idx += 2;
+                    }
+                    if ((text[idxText] >= low) && (text[idxText] <= high)) {
+                        isInSet = true;
+                    }
+                    idx++;
+                    isFirst = false;
+                }
+                if (idx < pattern.size()) {
+                    isMatch = (isInSet != isNegated);
+                    idxNext = idx + 1;
+                } else {
+                    // No closing ']': the '[' is a plain char
+                    isMatch = (text[idxText] == '[');
+                }
+            } else if ((ch == '\\') && ((idxPattern + 1) < pattern.size())) {
+                isMatch = (text[idxText] == pattern[idxPattern + 1]);
+                idxNext = idxPattern + 2;
+            } else {
+                isMatch = (text[idxText] == ch);
+            }
+        }
+        if (isMatch) {
+            idxPattern = idxNext;
+            idxText++;
+            continue;
+        }
+        // Back to the last '*' and let it take one more char
+        if (idxStar == std::string_view::npos) {
+            return false;
+        }
+        idxPattern = idxStar + 1;
+        idxText = ++idxStarText;
+    }
+    while ((idxPattern < pattern.size()) && (pattern[idxPattern] == '*')) {
+        idxPattern++;
+    }
+    return idxPattern == pattern.size();
+}
+
 static bool MatchSegments(const std::vector<std::string> &pattern, size_t idxPattern, const std::vector<std::string> &path, size_t idxPath) {
     if (idxPattern == pattern.size()) {
         return idxPath == path.size();
@@ -84,7 +155,7 @@ static bool MatchSegments(const std::vector<std::string> &pattern, size_t idxPat
     if (idxPath == path.size()) {
         return false;
     }
-    if (fnmatch(pattern[idxPattern].c_str(), path[idxPath].c_str(), 0) != 0) {
+    if (!GlobMatch(pattern[idxPattern], path[idxPath])) {
         return false;
     }
     return MatchSegments(pattern, idxPattern + 1, path, idxPath + 1);
@@ -98,7 +169,7 @@ bool ExclusionRules::Matches(const Pattern &pattern, const std::vector<std::stri
         return MatchSegments(pattern.segments, 0, relPath, 0);
     }
     // No '/': the name, at any depth below the file
-    return fnmatch(pattern.segments[0].c_str(), relPath.back().c_str(), 0) == 0;
+    return GlobMatch(pattern.segments[0], relPath.back());
 }
 
 fs::path ExclusionRules::DefaultGlobalIgnoreFile() {

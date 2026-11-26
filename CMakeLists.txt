@@ -63,6 +63,13 @@ set(DUKTAPE_EXTRAS src/ext/duktape-2.7.0/extras)
 list(APPEND duktape ${DUKTAPE_HOME}/duktape.c ${DUKTAPE_HOME}/duk_config.h ${DUKTAPE_HOME}/duktape.h)
 list(APPEND duktape ${DUKTAPE_EXTRAS}/module-node/duk_module_node.c)
 
+if (WIN32)
+    # Before the deps: gnklog needs it as much as we do (src/Core/windows/WinPrelude.h says why)
+    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:/FI${CMAKE_CURRENT_SOURCE_DIR}/src/Core/windows/WinPrelude.h>")
+    # More than the first 20 errors of a file while the port compiles
+    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-ferror-limit=0>")
+endif()
+
 # Fetch / configure source dependencies and locate trun testrunner headers
 include(cmake/CMakeDeps.cmake)
 
@@ -71,7 +78,12 @@ include(cmake/CMakeDeps.cmake)
 # own CMake + tests; pulled in via add_subdirectory (never by listing sources).
 # Coexists with SDL (NOT the SDL2-XOR-SDL3 split) — default ON.
 # ---------------------------------------------------------------------------
-option(GEDIT_BUILD_ANSI "Build the ANSI/TTY (gansi) backend" ON)
+if (WIN32)
+    # gansi talks to a POSIX terminal (termios); a Windows console backend is later (docs/windows-port.md)
+    option(GEDIT_BUILD_ANSI "Build the ANSI/TTY (gansi) backend" OFF)
+else()
+    option(GEDIT_BUILD_ANSI "Build the ANSI/TTY (gansi) backend" ON)
+endif()
 if (GEDIT_BUILD_ANSI)
     # The editor build does not need the gansi test shared lib as part of `all`;
     # it builds on demand (target gansitests). Keep it configured though, so trun
@@ -236,7 +248,7 @@ elseif(WIN32)
 
     add_definitions(-DGEDIT_WINDOWS -DNOMINMAX -DWIN32_LEAN_AND_MEAN -D_CRT_SECURE_NO_WARNINGS)
 
-    list(APPEND platformsrc src/Core/windows/WinString.h)
+    list(APPEND platformsrc src/Core/windows/WinPrelude.h src/Core/windows/WinString.h)
     list(APPEND platformsrc src/Core/windows/PlatformWindows.cpp)
     list(APPEND platformsrc src/Core/windows/PtySessionWindows.cpp)
     list(APPEND platformsrc src/Core/windows/ProcessWindows.cpp)

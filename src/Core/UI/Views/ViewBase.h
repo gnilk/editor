@@ -9,8 +9,11 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#if __has_include(<cxxabi.h>)
 #include <cxxabi.h>
+#endif
 #include <string>
+#include <string_view>
 #include <typeinfo>
 
 
@@ -444,9 +447,10 @@ namespace gedit {
             OnViewInitialized();
         }
 
-        // Helper for 'GetClassName'
-        // Note: This is only supported on GCC/CLang
+        // Helper for 'GetClassName' - the Itanium ABI's names (GCC / Clang) are mangled; MSVC's typeid name is
+        // readable already ('class gedit::EditorView')
         static std::string Demangle(const char* name) {
+#if __has_include(<cxxabi.h>)
             int status = 0;
 
             std::unique_ptr<char, void(*)(void*)> res{
@@ -457,6 +461,15 @@ namespace gedit {
             return (status == 0)
                 ? res.get()
                 : name;
+#else
+            std::string_view text(name);
+            for (std::string_view prefix : {"class ", "struct "}) {
+                if (text.starts_with(prefix)) {
+                    text.remove_prefix(prefix.size());
+                }
+            }
+            return std::string(text);
+#endif
         }
     protected:
         bool hasExplicitSize = false;  // Won't be affected by resize

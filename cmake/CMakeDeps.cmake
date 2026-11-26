@@ -46,7 +46,11 @@ FetchContent_Declare(gnklog
     GIT_SHALLOW    FALSE
 )
 FetchContent_MakeAvailable(gnklog)
-target_compile_options(gnklog PUBLIC -fPIC -Wno-unused-parameter)
+if (MSVC)
+    target_compile_options(gnklog PUBLIC -Wno-unused-parameter)
+else()
+    target_compile_options(gnklog PUBLIC -fPIC -Wno-unused-parameter)
+endif()
 list(APPEND extlibs gnklog)
 
 # ---------------------------------------------------------------------------
@@ -91,4 +95,34 @@ if (NOT TRUN_INCLUDE_DIR)
     message(WARNING
         "trun headers not found in /usr/local/include or /usr/include — utests will not "
         "build correctly. Install the trun testrunner package.")
+endif()
+
+# ---------------------------------------------------------------------------
+# Windows: SDL3 and yaml-cpp have no system package to find - fetched, pinned, built static (docs/windows-port.md §5).
+# SDL3 is what the Mac (Homebrew) uses; yaml-cpp 0.9.0 too (Linux has 0.8.0, whose CMake file CMake 4 refuses).
+# ---------------------------------------------------------------------------
+if (WIN32)
+    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+    set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(SDL3
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+        GIT_TAG        release-3.4.18
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(SDL3)
+
+    set(YAML_CPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(YAML_CPP_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+    set(YAML_CPP_BUILD_CONTRIB OFF CACHE BOOL "" FORCE)
+    set(YAML_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(yaml-cpp
+        GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+        GIT_TAG        yaml-cpp-0.9.0
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(yaml-cpp)
+    if (NOT TARGET yaml-cpp::yaml-cpp)
+        add_library(yaml-cpp::yaml-cpp ALIAS yaml-cpp)
+    endif()
 endif()

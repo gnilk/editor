@@ -1,5 +1,5 @@
 #
-# GoatEdit - CMakeLists.txt for Linux and macOS
+# GoatEdit - CMakeLists.txt for Linux, macOS and Windows (docs/windows-port.md)
 # Note: I throughly dislike CMake but I find it better than plain makefiles so that's it..
 #
 cmake_minimum_required(VERSION 3.28)
@@ -43,7 +43,8 @@ if (NOT EXISTS ${EDITOR_ASSET_DIR})
     file(MAKE_DIRECTORY ${EDITOR_ASSET_DIR})
 endif ()
 
-if (APPLE)
+if (APPLE OR WIN32)
+    # Windows: SDL3 only (docs/windows-port.md §1)
     option(GEDIT_BUILD_SDL3 "Build SDL3" ON)
     option(GEDIT_BUILD_SDL2 "Build SDL2" OFF)
 else()
@@ -228,6 +229,23 @@ if (APPLE)
     # Codesigning/notarisation: optional follow-up for distribution outside personal use.
     # Requires an Apple Developer ID certificate; see CPACK_BUNDLE_APPLE_CERT_APP + notarytool.
     include(CPack)
+elseif(WIN32)
+    # docs/windows-port.md - clang-cl (or cl) from Visual Studio. Phase 1: a window, editing, the config; the terminal,
+    # processes, the folder monitor and the system font fallback are stubs (src/Core/windows/)
+    message(STATUS "Windows build (${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION})")
+
+    add_definitions(-DGEDIT_WINDOWS -DNOMINMAX -DWIN32_LEAN_AND_MEAN -D_CRT_SECURE_NO_WARNINGS)
+
+    list(APPEND platformsrc src/Core/windows/WinString.h)
+    list(APPEND platformsrc src/Core/windows/PlatformWindows.cpp)
+    list(APPEND platformsrc src/Core/windows/PtySessionWindows.cpp)
+    list(APPEND platformsrc src/Core/windows/ProcessWindows.cpp)
+    list(APPEND platformsrc src/Core/windows/FolderMonitorWindows.cpp)
+    list(APPEND platformsrc src/Core/windows/SystemFontsWindows.cpp)
+
+    list(APPEND extlibs yaml-cpp::yaml-cpp)
+    # A console program for now - its stderr is where the early messages go
+    add_executable(${CUR_TARGET} ${appsrc})
 elseif(UNIX)
     message(STATUS "Linux build")
 
@@ -310,8 +328,11 @@ elseif(UNIX)
 
 endif ()
 
-# yaml-cpp — found via CMAKE_PREFIX_PATH (set from brew --prefix on macOS; standard paths on Linux)
-find_package(yaml-cpp REQUIRED)
+# yaml-cpp — found via CMAKE_PREFIX_PATH (set from brew --prefix on macOS; standard paths on Linux); Windows fetches it
+# (cmake/CMakeDeps.cmake)
+if (NOT TARGET yaml-cpp::yaml-cpp)
+    find_package(yaml-cpp REQUIRED)
+endif()
 
 # Per-compiler warning flags, build-type optimisation, and sanitiser option
 include(cmake/CMakeBuildFlags.cmake)
@@ -575,8 +596,11 @@ if (GEDIT_BUILD_SDL3)
             list(PREPEND CMAKE_PREFIX_PATH "${_sdl3_prefix}")
         endif()
     endif()
-    find_package(SDL3 REQUIRED CONFIG)
-    message(STATUS "SDL3 found: ${SDL3_VERSION} (${SDL3_DIR})")
+    # Windows fetches it (cmake/CMakeDeps.cmake)
+    if (NOT TARGET SDL3::SDL3)
+        find_package(SDL3 REQUIRED CONFIG)
+        message(STATUS "SDL3 found: ${SDL3_VERSION} (${SDL3_DIR})")
+    endif()
     list(APPEND extlibs SDL3::SDL3)
     add_definitions(-DGEDIT_USE_SDL3)
 
@@ -721,10 +745,12 @@ target_link_libraries(utests ${extlibs})
 gedit_warning_flags(utests)
 
 # test_process_stopall_atexit runs it: a program of its own that exits with a process running (open-bugs #32)
-add_executable(process-exit-helper utests/helpers/process_exit_helper.cpp src/Core/Process.cpp src/Core/unix/ProcessUnix.cpp)
-target_include_directories(process-exit-helper PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-gedit_warning_flags(process-exit-helper)
-add_dependencies(utests process-exit-helper)
+if (NOT WIN32)
+    add_executable(process-exit-helper utests/helpers/process_exit_helper.cpp src/Core/Process.cpp src/Core/unix/ProcessUnix.cpp)
+    target_include_directories(process-exit-helper PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    gedit_warning_flags(process-exit-helper)
+    add_dependencies(utests process-exit-helper)
+endif()
 
 # Code index lexer benchmark (docs/code-index.md step 0) - a plain executable, not a trun case (trun links
 # the ASan runtime, which skews allocation-heavy numbers). Build in release: cmake --build --preset release

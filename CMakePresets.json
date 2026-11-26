@@ -29,6 +29,19 @@
       }
     },
     {
+      "name": "windows-debug",
+      "displayName": "Windows Debug (clang-cl)",
+      "description": "Debug build with Visual Studio's clang-cl - run from a VS x64 developer environment (docs/windows-port.md §5).",
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang-cl",
+        "CMAKE_CXX_COMPILER": "clang-cl",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
       "name": "asan",
       "displayName": "AddressSanitizer",
       "description": "Debug build with AddressSanitizer. Formalises the ad-hoc cmake-build-asan/ directory.",
@@ -51,6 +64,12 @@
       "name": "release",
       "displayName": "Build goatedit (Release)",
       "configurePreset": "release",
+      "targets": ["goatedit"]
+    },
+    {
+      "name": "windows-debug",
+      "displayName": "Build goatedit (Windows Debug)",
+      "configurePreset": "windows-debug",
       "targets": ["goatedit"]
     },
     {

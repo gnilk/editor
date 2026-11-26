@@ -13,6 +13,22 @@
 # clang's -Wshadow misses a parameter named like a member (gcc's catches it); -Wshadow-all adds that.
 # ---------------------------------------------------------------------------
 function(gedit_warning_flags target)
+    if (MSVC)
+        # clang-cl / cl: /W4 is -Wall -Wextra ('-Wall' given to clang-cl means /Wall = -Weverything)
+        target_compile_options(${target} PRIVATE /W4)
+        if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            target_compile_options(${target} PRIVATE
+                -Wshadow-all
+                -Wno-unused-parameter
+                -Wno-unused-variable
+                -Wno-sign-compare
+                -Wno-unused-but-set-variable
+                -Wno-unused-local-typedef
+                -Wno-unneeded-internal-declaration
+            )
+        endif()
+        return()
+    endif()
     target_compile_options(${target} PRIVATE
         -Wall -Wextra
         -Wshadow
@@ -47,11 +63,14 @@ endif()
 # ---------------------------------------------------------------------------
 # Build-type optimisation flags
 # ---------------------------------------------------------------------------
-target_compile_options(${CUR_TARGET} PRIVATE
-    $<$<CONFIG:Debug>:-O0 -g>
-    $<$<CONFIG:Release>:-O2 -DNDEBUG>
-    $<$<CONFIG:RelWithDebInfo>:-O2 -g -DNDEBUG>
-)
+# (MSVC-style compilers: CMake's own per-config defaults - /Od /Zi, /O2 /DNDEBUG)
+if (NOT MSVC)
+    target_compile_options(${CUR_TARGET} PRIVATE
+        $<$<CONFIG:Debug>:-O0 -g>
+        $<$<CONFIG:Release>:-O2 -DNDEBUG>
+        $<$<CONFIG:RelWithDebInfo>:-O2 -g -DNDEBUG>
+    )
+endif()
 
 # ---------------------------------------------------------------------------
 # Sanitiser option (formalises the ad-hoc cmake-build-asan/ directory)

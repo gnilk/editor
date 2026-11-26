@@ -151,6 +151,17 @@ linux:
   hexview_keymap: Linux/hexview_keymap.yml
   messages_keymap: Linux/messages_keymap.yml
 
+# Windows follows the Linux convention (Ctrl = functionality, Alt = UI control) - the Linux keymap files, until something
+# differs (docs/windows-port.md §3.1)
+windows:
+  default_keymap: Linux/default_keymap.yml
+  quickmode_keymap: Linux/quickmode_keymap.yml
+  workspace_keymap: Linux/workspace_keymap.yml
+  terminal_keymap: Linux/terminal_keymap.yml
+  modal_keymap: Linux/modal_keymap.yml
+  hexview_keymap: Linux/hexview_keymap.yml
+  messages_keymap: Linux/messages_keymap.yml
+
 sdl:
   # Defines the SDL window rendering backend 'opengl', 'vulkan', 'metal' - empty or unknown means default...
   backend: "opengl"
@@ -171,6 +182,10 @@ sdl:
     - /System/Library/Fonts/Supplemental/Arial Unicode.ttf
     - /Library/Fonts/Arial Unicode.ttf
     - /System/Library/Fonts/Apple Symbols.ttf
+    # Windows
+    - C:/Windows/Fonts/consola.ttf
+    - C:/Windows/Fonts/seguisym.ttf
+    - C:/Windows/Fonts/msgothic.ttc
   # After the theme's font and the list above, ask the system (CoreText / fontconfig) for a font that has the glyph.
   # Off: a glyph none of them has is an empty cell.
   system_font_fallback: yes

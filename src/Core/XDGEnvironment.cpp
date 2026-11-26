@@ -35,9 +35,13 @@ bool XDGEnvironment::IsTerminalSession([[maybe_unused]] const std::string &sessi
                                        [[maybe_unused]] const std::string &display,
                                        [[maybe_unused]] const std::string &waylandDisplay,
                                        [[maybe_unused]] const std::string &sshConnection) {
-#ifdef GEDIT_MACOS
+#if defined(GEDIT_MACOS)
     // The window server doesn't care about DISPLAY; over ssh there is no screen of the user's to draw on
     return !sshConnection.empty();
+#elif defined(GEDIT_WINDOWS)
+    // A desktop is always there, and there is no terminal backend yet - cmd.exe and PowerShell set none of the unix
+    // variables, which read as 'a tty' below (docs/windows-port.md)
+    return false;
 #else
     if (sessionType == "tty") {
         return true;

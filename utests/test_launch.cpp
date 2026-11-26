@@ -63,7 +63,11 @@ DLL_EXPORT int test_launch_take_started_from_ui(ITesting *t) {
 
 // No display to open a window on is a terminal session - the ANSI backend, unless --backend says otherwise (#46)
 DLL_EXPORT int test_launch_no_display(ITesting *t) {
-#ifdef GEDIT_MACOS
+#if defined(GEDIT_WINDOWS)
+    // Always a desktop (no terminal backend yet) - also with none of the unix variables, as from cmd.exe
+    TR_ASSERT(t, !XDGEnvironment::IsTerminalSession("tty", "", "", ""));
+    TR_ASSERT(t, !XDGEnvironment::IsTerminalSession("tty", "", "", "10.0.0.2 52044 10.0.0.1 22"));
+#elif defined(GEDIT_MACOS)
     // The window server is there whatever DISPLAY says; over ssh it isn't the user's
     TR_ASSERT(t, !XDGEnvironment::IsTerminalSession("macos", "", "", ""));
     TR_ASSERT(t, !XDGEnvironment::IsTerminalSession("macos", ":0", "", ""));

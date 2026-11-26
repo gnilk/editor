@@ -14,7 +14,7 @@
 #include "Core/RuntimeConfig.h"
 #include "Core/Theme/Theme.h"
 #include "Core/Theme/ThemeImporter.h"
-#include "Core/XDGEnvironment.h"
+#include "Core/UserDirs.h"
 #include "ConfigAPI.h"
 #include "ThemesAPI.h"
 
@@ -329,7 +329,7 @@ static ThemeImporter::Provenance ProvenanceAround(const std::filesystem::path &t
 static std::filesystem::path ResolveSourcePath(const std::string &file) {
     std::filesystem::path path = file;
     if (file.starts_with("~/")) {
-        path = XDGEnvironment::Instance().GetUserHomePath() / file.substr(2);
+        path = UserDirs::Home() / file.substr(2);
     }
     std::error_code ec;
     auto absPath = std::filesystem::absolute(path, ec).lexically_normal();

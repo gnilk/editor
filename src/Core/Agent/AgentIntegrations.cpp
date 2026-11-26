@@ -10,6 +10,7 @@
 #include "AgentIntegrations.h"
 #include "ClaudeAgent.h"
 #include "NoAgent.h"
+#include "Core/UserDirs.h"
 
 using namespace gedit;
 
@@ -30,9 +31,9 @@ std::vector<std::string> AgentIntegrations::Names() {
 std::optional<std::filesystem::path> AgentIntegrations::FindExecutable(const std::string &name) {
     auto pathVariable = std::getenv("PATH");
     std::vector<std::filesystem::path> moreDirs;
-    if (auto home = std::getenv("HOME"); (home != nullptr) && (*home != '\0')) {
-        moreDirs.push_back(std::filesystem::path(home) / ".local" / "bin");
-        moreDirs.push_back(std::filesystem::path(home) / ".claude" / "local");
+    if (auto &home = UserDirs::Home(); !home.empty()) {
+        moreDirs.push_back(home / ".local" / "bin");
+        moreDirs.push_back(home / ".claude" / "local");
     }
     moreDirs.emplace_back("/opt/homebrew/bin");
     moreDirs.emplace_back("/usr/local/bin");

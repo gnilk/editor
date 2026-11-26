@@ -12,6 +12,7 @@
 #include "AgentIntegrations.h"
 #include "ClaudeAgent.h"
 #include "Core/Platform.h"
+#include "Core/UserDirs.h"
 
 using namespace gedit;
 
@@ -141,8 +142,8 @@ std::filesystem::path ClaudeAgent::ConfigDir() {
     if (auto configDir = Platform::GetEnvOr("CLAUDE_CONFIG_DIR", ""); !configDir.empty()) {
         return configDir;
     }
-    if (auto home = Platform::GetEnvOr("HOME", ""); !home.empty()) {
-        return std::filesystem::path(home) / ".claude";
+    if (auto &home = UserDirs::Home(); !home.empty()) {
+        return home / ".claude";
     }
     return {};
 }
@@ -187,8 +188,8 @@ std::filesystem::path ClaudeAgent::ConfigFile() {
     if (auto configDir = Platform::GetEnvOr("CLAUDE_CONFIG_DIR", ""); !configDir.empty()) {
         return std::filesystem::path(configDir) / ".claude.json";
     }
-    if (auto home = Platform::GetEnvOr("HOME", ""); !home.empty()) {
-        return std::filesystem::path(home) / ".claude.json";
+    if (auto &home = UserDirs::Home(); !home.empty()) {
+        return home / ".claude.json";
     }
     return {};
 }

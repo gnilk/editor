@@ -25,13 +25,7 @@ namespace gedit {
                                                                         const std::vector<std::filesystem::path> &xdgDataDirs);
         // The first candidate holding a config.yml - the one and only system asset directory
         static std::optional<std::filesystem::path> FindSystemAssetDir(const std::vector<std::filesystem::path> &candidates);
-
-        // User asset directories, the preferred (written) one first, legacy read-only fallbacks after it.
-        // Never '$XDG_DATA_HOME/goatedit': that is where a per-user install puts its system assets.
-        static std::vector<std::filesystem::path> UserAssetDirs(const std::filesystem::path &home,
-                                                                const std::filesystem::path &xdgConfigHome);
-        // Logs and user-scope history
-        static std::filesystem::path UserStateDir(const std::filesystem::path &xdgStateHome);
+        // The user's dirs are UserDirs'
     };
 }
 

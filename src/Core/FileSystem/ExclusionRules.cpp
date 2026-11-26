@@ -10,6 +10,7 @@
 #include <sstream>
 
 #include "ExclusionRules.h"
+#include "Core/UserDirs.h"
 
 using namespace gedit;
 namespace fs = std::filesystem;
@@ -101,12 +102,7 @@ bool ExclusionRules::Matches(const Pattern &pattern, const std::vector<std::stri
 }
 
 fs::path ExclusionRules::DefaultGlobalIgnoreFile() {
-    auto xdgConfigHome = std::getenv("XDG_CONFIG_HOME");
-    if ((xdgConfigHome != nullptr) && (xdgConfigHome[0] != '\0')) {
-        return fs::path(xdgConfigHome) / "git" / "ignore";
-    }
-    auto home = std::getenv("HOME");
-    return (home != nullptr) ? (fs::path(home) / ".config" / "git" / "ignore") : fs::path{};
+    return UserDirs::Current().gitGlobalIgnoreFile;
 }
 
 ExclusionRules::ExclusionRules(const fs::path &newRoot, std::vector<std::string> excludePatterns, bool newUseGitIgnore, const fs::path &globalIgnoreFile) :

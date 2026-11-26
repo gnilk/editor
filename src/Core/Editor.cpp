@@ -86,6 +86,7 @@
 using namespace gedit;
 
 #include "Version.h"
+#include "Core/UserDirs.h"
 
 #define xstr(a) str(a)
 #define str(a) #a
@@ -192,8 +193,8 @@ std::vector<std::filesystem::path> Editor::UnusedProjectDirs(const std::vector<s
 
 // Where new user files (config, imported themes) are written - see docs/install-layout.md
 std::filesystem::path Editor::GetDefaultUserConfigDir() {
-    auto &xdg = XDGEnvironment::Instance();
-    return InstallPaths::UserAssetDirs(xdg.GetUserHomePath(), xdg.GetUserConfigPath()).front();
+    auto &assetDirs = UserDirs::Current().assetDirs;
+    return assetDirs.empty() ? std::filesystem::path() : assetDirs.front();
 }
 
 bool Editor::Initialize(int argc, const char **argv) {
@@ -210,7 +211,7 @@ bool Editor::Initialize(int argc, const char **argv) {
     // Makes it easier to detect starting in file-appending log-file...
     logger->Debug("*************** EDITOR STARTING ***************");
 
-    auto pathHome = XDGEnvironment::Instance().GetUserHomePath();
+    auto pathHome = UserDirs::Home();
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
 
     ConfigureAssetSearchPaths();
@@ -364,7 +365,7 @@ bool Editor::Initialize(int argc, const char **argv) {
 // One system asset directory, found relative to the executable; the user layer is the preferred XDG config
 // dir plus legacy dirs that are still read. See docs/install-layout.md.
 void Editor::ConfigureAssetSearchPaths() {
-    auto &xdg = XDGEnvironment::Instance();
+    auto &userDirs = UserDirs::Current();
     auto &assetLoader = RuntimeConfig::Instance().GetAssetLoader();
 
     std::optional<std::filesystem::path> systemDir;
@@ -373,7 +374,7 @@ void Editor::ConfigureAssetSearchPaths() {
     } else {
         auto exeDir = InstallPaths::ExecutableDir();
         logger->Debug("Executable dir: %s", exeDir.c_str());
-        systemDir = InstallPaths::FindSystemAssetDir(InstallPaths::SystemAssetCandidates(exeDir, xdg.GetSystemDataPaths()));
+        systemDir = InstallPaths::FindSystemAssetDir(InstallPaths::SystemAssetCandidates(exeDir, userDirs.systemDataDirs));
     }
     if (systemDir.has_value()) {
         logger->Debug("System assets: %s", systemDir->c_str());
@@ -382,15 +383,15 @@ void Editor::ConfigureAssetSearchPaths() {
         logger->Error("No system assets found next to the executable or in $XDG_DATA_DIRS");
     }
 
-    auto userDirs = InstallPaths::UserAssetDirs(xdg.GetUserHomePath(), xdg.GetUserConfigPath());
-    for (size_t i = 0; i < userDirs.size(); i++) {
-        if (!assetLoader.AddSearchPath(userDirs[i], AssetLoaderBase::kLocationType::kUser)) {
+    auto &assetDirs = userDirs.assetDirs;
+    for (size_t i = 0; i < assetDirs.size(); i++) {
+        if (!assetLoader.AddSearchPath(assetDirs[i], AssetLoaderBase::kLocationType::kUser)) {
             continue;
         }
         if (i > 0) {
             logger->Warning("Legacy user dir '%s' is still read - move its files to '%s'",
-                            userDirs[i].c_str(), userDirs.front().c_str());
-            Notice(fmt::format("the old user dir '{}' is still read - move its files to '{}'", userDirs[i].string(), userDirs.front().string()));
+                            assetDirs[i].c_str(), assetDirs.front().c_str());
+            Notice(fmt::format("the old user dir '{}' is still read - move its files to '{}'", assetDirs[i].string(), assetDirs.front().string()));
         }
     }
 }
@@ -509,7 +510,7 @@ bool Editor::EstablishProjectDir() {
     if (!Config::Instance()["session"].GetBool("enabled", true)) {
         return false;
     }
-    auto pathHome = XDGEnvironment::Instance().GetUserHomePath();
+    auto pathHome = UserDirs::Home();
     auto cwd = std::filesystem::current_path();
     // Same guard as init-time kProject registration: only a strict subdir of $HOME can host a project.
     if (!IsStrictSubdir(cwd, pathHome)) {
@@ -1025,7 +1026,7 @@ void Editor::ConfigurePreInitLogger() {
     auto cfgLogging = Config::Instance().GetNode("logging");
     auto logFileName = "preinitlog.log";
     auto sinkName = "filesink";
-    auto logPath = XDGEnvironment::Instance().GetUserStatePath();
+    auto logPath = UserDirs::Current().stateDir;
     if (!CheckCreateDirectory(logPath)) {
         return;
     }
@@ -1045,12 +1046,7 @@ void Editor::ConfigureLogger() {
     auto logFileName = cfgLogging.GetStr("logfile","goatedit.log");
     auto sinkName = cfgLogging.GetStr("logsink","filesink");
 
-#ifdef GEDIT_LINUX
-    auto logPath = InstallPaths::UserStateDir(XDGEnvironment::Instance().GetUserStatePath());
-#else
-    auto logPath = XDGEnvironment::Instance().GetUserHomePath();
-    logPath /= "Library/Logs/GoatEdit";
-#endif
+    auto logPath = UserDirs::Current().logDir;
     if (!CheckCreateDirectory(logPath)) {
         logger->Error("Unable to create log output directory '%s'", logPath.c_str());
         return;
@@ -1667,7 +1663,7 @@ void Editor::IndexProjectRoots() {
 
 // Not a project: the cwd root, or a folder that holds the whole home directory
 bool Editor::IsProjectRoot(const Workspace::ProjectRoot::Ref &root) {
-    auto pathHome = XDGEnvironment::Instance().GetUserHomePath();
+    auto pathHome = UserDirs::Home();
     auto rootPath = pathutil::CanonicalPath(root->GetRootPath());
     bool isTooWide = (rootPath == pathHome) || IsStrictSubdir(pathHome, rootPath);
     return !workspace->IsDefaultRoot(root) && !isTooWide;

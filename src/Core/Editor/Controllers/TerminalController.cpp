@@ -13,7 +13,7 @@
 #include "Core/Session/SessionManager.h"
 #include "Core/Session/SessionState.h"
 #include "Core/InstallPaths.h"
-#include "Core/XDGEnvironment.h"
+#include "Core/UserDirs.h"
 #include "Core/Runloop.h"
 
 using namespace gedit;
@@ -183,7 +183,7 @@ void TerminalController::LoadCmdHistory() {
         return;
     }
 
-    cmdHistoryPath = InstallPaths::UserStateDir(XDGEnvironment::Instance().GetUserStatePath()) / historyFileName;
+    cmdHistoryPath = UserDirs::Current().stateDir / historyFileName;
     if (!cmdHistory.Load(cmdHistoryPath)) {
         cmdHistory.Load(assetLoader.LoadTextAsset(historyFileName, AssetLoaderBase::kLocationType::kUser));
     }

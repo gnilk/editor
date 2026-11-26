@@ -42,15 +42,3 @@ std::optional<std::filesystem::path> InstallPaths::FindSystemAssetDir(const std:
     }
     return {};
 }
-
-std::vector<std::filesystem::path> InstallPaths::UserAssetDirs(const std::filesystem::path &home,
-                                                               const std::filesystem::path &xdgConfigHome) {
-    return {
-        xdgConfigHome / glbDirName,     // preferred
-        home / ".goatedit",             // legacy
-    };
-}
-
-std::filesystem::path InstallPaths::UserStateDir(const std::filesystem::path &xdgStateHome) {
-    return xdgStateHome / glbDirName;
-}

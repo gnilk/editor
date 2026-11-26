@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <fstream>
 #include "Core/InstallPaths.h"
+#include "Core/UserDirs.h"
 #include "Core/AssetLoaderBase.h"
 
 using namespace gedit;
@@ -104,17 +105,17 @@ DLL_EXPORT int test_installpaths_xdgfallback(ITesting *t) {
     return kTR_Pass;
 }
 
-// The XDG config dir is preferred (it's where new files are written); the legacy dirs follow
+// A per-user install's system assets ('~/.local' prefix) are never read as user config (the user's dirs: test_userdirs)
 DLL_EXPORT int test_installpaths_userorder(ITesting *t) {
-    auto dirs = InstallPaths::UserAssetDirs("/home/goat", "/home/goat/.config");
-    TR_ASSERT(t, dirs.size() == 2);
-    TR_ASSERT(t, dirs[0] == "/home/goat/.config/goatedit");
-    TR_ASSERT(t, dirs[1] == "/home/goat/.goatedit");
-    // A per-user install's system assets ('~/.local' prefix) are never read as user config
+    auto dirs = UserDirs::Resolve(UserDirs::kPlatform::kLinux, [](const std::string &name) -> std::optional<std::string> {
+        if (name == "HOME") {
+            return "/home/goat";
+        }
+        return std::nullopt;
+    }).assetDirs;
     auto installed = InstallPaths::SystemAssetCandidates("/home/goat/.local/bin", {})[2];
     TR_ASSERT(t, installed == "/home/goat/.local/share/goatedit");
     TR_ASSERT(t, std::find(dirs.begin(), dirs.end(), installed) == dirs.end());
-    TR_ASSERT(t, InstallPaths::UserStateDir("/home/goat/.local/state") == "/home/goat/.local/state/goatedit");
     return kTR_Pass;
 }
 

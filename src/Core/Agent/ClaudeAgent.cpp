@@ -11,6 +11,7 @@
 
 #include "AgentIntegrations.h"
 #include "ClaudeAgent.h"
+#include "Core/Platform.h"
 
 using namespace gedit;
 
@@ -137,10 +138,10 @@ std::string ClaudeAgent::ProjectFolderName(const std::filesystem::path &root) {
 }
 
 std::filesystem::path ClaudeAgent::ConfigDir() {
-    if (auto configDir = std::getenv("CLAUDE_CONFIG_DIR"); (configDir != nullptr) && (*configDir != '\0')) {
+    if (auto configDir = Platform::GetEnvOr("CLAUDE_CONFIG_DIR", ""); !configDir.empty()) {
         return configDir;
     }
-    if (auto home = std::getenv("HOME"); (home != nullptr) && (*home != '\0')) {
+    if (auto home = Platform::GetEnvOr("HOME", ""); !home.empty()) {
         return std::filesystem::path(home) / ".claude";
     }
     return {};
@@ -183,10 +184,10 @@ bool ClaudeAgent::IsTrusted(const std::filesystem::path &root, const std::filesy
 }
 
 std::filesystem::path ClaudeAgent::ConfigFile() {
-    if (auto configDir = std::getenv("CLAUDE_CONFIG_DIR"); (configDir != nullptr) && (*configDir != '\0')) {
+    if (auto configDir = Platform::GetEnvOr("CLAUDE_CONFIG_DIR", ""); !configDir.empty()) {
         return std::filesystem::path(configDir) / ".claude.json";
     }
-    if (auto home = std::getenv("HOME"); (home != nullptr) && (*home != '\0')) {
+    if (auto home = Platform::GetEnvOr("HOME", ""); !home.empty()) {
         return std::filesystem::path(home) / ".claude.json";
     }
     return {};

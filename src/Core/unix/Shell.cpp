@@ -29,6 +29,7 @@
 
 #include "Core/UnicodeHelper.h"
 #include "Shell.h"
+#include "Core/Platform.h"
 
 #ifndef GEDIT_DEFAULT_POLL_TMO_MS
 #define GEDIT_DEFAULT_POLL_TMO_MS 100
@@ -294,11 +295,7 @@ void Shell::ConsumePty() {
 
     ChangeState(State::kRunning);
 
-#ifdef GEDIT_LINUX
-    pthread_setname_np(pthread_self(), "ShlConsume");
-#else
-    pthread_setname_np("ShlConsume");
-#endif
+    Platform::SetThreadName("ShlConsume");
 
     uint8_t buffer[4096];
 

@@ -13,6 +13,7 @@
 #include "Core/RuntimeConfig.h"
 #include "Keyboard.h"
 #include "logger.h"
+#include "Core/Platform.h"
 #include <algorithm>
 #include <cctype>
 #include <unordered_map>
@@ -151,13 +152,7 @@ KeyMapping::Ref KeyMapping::Create(const ConfigNode &cfgNode, const ParentResolv
 }
 
 static std::string &ConfigSectionStorage() {
-#if defined(GEDIT_LINUX)
-    static std::string section = "linux";
-#elif defined(GEDIT_MACOS)
-    static std::string section = "macos";
-#else
-    static std::string section;
-#endif
+    static std::string section(Platform::Name());
     return section;
 }
 

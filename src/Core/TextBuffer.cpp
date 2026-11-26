@@ -20,6 +20,7 @@
 #include "DurationTimer.h"
 #include "Core/CompileTimeConfig.h"
 #include "Core/StrUtil.h"
+#include "Core/Platform.h"
 
 using namespace gedit;
 
@@ -214,11 +215,7 @@ void TextBuffer::StartParseThread() {
 
 
 void TextBuffer::ParseThread() {
-#ifdef GEDIT_LINUX
-    pthread_setname_np(pthread_self(), "TBufParse");
-#else
-    pthread_setname_np("TBufParse");
-#endif
+    Platform::SetThreadName("TBufParse");
 
     ChangeParseState(kState_Idle);
     while(!bQuitReparse) {

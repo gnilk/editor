@@ -73,6 +73,7 @@
 #include "Core/API/ThemesAPI.h"
 #include "Core/Git/GitBase.h"
 #include "Core/Graphics/Headless/HLScreen.h"
+#include "Core/Platform.h"
 
 #if defined(GEDIT_MACOS)
     #include "CoreFoundation/CoreFoundation.h"
@@ -1370,8 +1371,8 @@ extern "C" char ** environ;
 
 bool Editor::TakeStartedFromUI() {
     static const char *kStartedFromUI = "GEDIT_MACOS_STARTED_FROM_UI";
-    [[maybe_unused]] bool isSet = (std::getenv(kStartedFromUI) != nullptr);
-    unsetenv(kStartedFromUI);
+    [[maybe_unused]] bool isSet = Platform::GetEnv(kStartedFromUI).has_value();
+    Platform::UnsetEnv(kStartedFromUI);
 #ifdef GEDIT_MACOS
     return isSet;
 #else

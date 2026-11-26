@@ -2,12 +2,8 @@
 // Where GoatEdit's files live - see docs/install-layout.md
 //
 
-#if defined(GEDIT_MACOS)
-#include <mach-o/dyld.h>
-#include <climits>
-#endif
-
 #include "InstallPaths.h"
+#include "Core/Platform.h"
 
 using namespace gedit;
 
@@ -19,27 +15,7 @@ std::filesystem::path InstallPaths::ExecutableDir() {
 }
 
 std::filesystem::path InstallPaths::ExecutablePath() {
-    std::error_code ec;
-#if defined(GEDIT_LINUX)
-    auto exePath = std::filesystem::read_symlink("/proc/self/exe", ec);
-    if (ec) {
-        return {};
-    }
-#elif defined(GEDIT_MACOS)
-    char buffer[PATH_MAX];
-    uint32_t size = sizeof(buffer);
-    if (_NSGetExecutablePath(buffer, &size) != 0) {
-        return {};
-    }
-    // May hold symlinks or '..' - canonical resolves both
-    auto exePath = std::filesystem::canonical(buffer, ec);
-    if (ec) {
-        return {};
-    }
-#else
-    std::filesystem::path exePath;
-#endif
-    return exePath;
+    return Platform::ExecutablePath();
 }
 
 std::vector<std::filesystem::path> InstallPaths::SystemAssetCandidates(const std::filesystem::path &exeDir,

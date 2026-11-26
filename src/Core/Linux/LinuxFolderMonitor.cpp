@@ -15,6 +15,7 @@
 
 #include "LinuxFolderMonitor.h"
 #include "Core/CompileTimeConfig.h"
+#include "Core/Platform.h"
 
 using namespace gedit;
 
@@ -55,7 +56,7 @@ bool LinuxFolderMonitorPoint::Start() {
     isQuitRequested = false;
     isRunning = true;
     eventThread = std::thread([this]() {
-        pthread_setname_np(pthread_self(), "LnxFldMon");
+        Platform::SetThreadName("LnxFldMon");
         EventThread();
     });
     return true;

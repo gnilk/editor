@@ -19,6 +19,7 @@
 #include "Core/UI/Modals/ConfirmModal.h"
 #include "Core/UI/Views/RootView.h"
 #include "Core/UnicodeHelper.h"
+#include "Core/Platform.h"
 
 using namespace gedit;
 
@@ -405,8 +406,7 @@ bool AgentAsk::WriteQuestionFile(const AgentQuestion &question, std::string &out
         return false;
     }
     auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    std::tm local = {};
-    localtime_r(&time, &local);
+    auto local = Platform::LocalTime(time);
     char askedAt[32] = {};
     std::strftime(askedAt, sizeof(askedAt), "%Y-%m-%d %H:%M:%S", &local);
 

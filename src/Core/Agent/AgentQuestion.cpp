@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 
 #include "AgentQuestion.h"
+#include "Core/Platform.h"
 
 using namespace gedit;
 
@@ -19,8 +20,7 @@ AgentQuestion::AgentQuestion(std::string newId, std::string newQuestion, const s
 
 std::string AgentQuestion::MakeId(std::chrono::system_clock::time_point when, int number) {
     auto time = std::chrono::system_clock::to_time_t(when);
-    std::tm local = {};
-    localtime_r(&time, &local);
+    auto local = Platform::LocalTime(time);
     char stamp[32] = {};
     std::strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", &local);
     return fmt::format("{}-{}", stamp, number);

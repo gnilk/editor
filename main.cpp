@@ -310,7 +310,6 @@ using namespace gedit;
 
 
 #include <stdexcept>
-#include <execinfo.h>
 #include <exception>
 #include <stdexcept>
 #include <cstdlib>
@@ -336,7 +335,7 @@ static void Unwind() {
 }
 
 // This function is used for handle segmental fault
-inline void segfaultHandler(int signal __attribute__((unused)))
+inline void segfaultHandler([[maybe_unused]] int signal)
 {
     std::cerr << "Segmentation fault (sig: " << signal << ")! backtrace: " << "\n";
     Unwind();

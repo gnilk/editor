@@ -13,6 +13,8 @@ namespace pathutil {
     // Absolute, normalized, symlinks resolved as far as the path exists (no trailing '.' or '/'). The
     // workspace tree is kept in this form - it is also what the OS folder monitors report.
     std::filesystem::path CanonicalPath(const std::filesystem::path &pathName);
+    // '~' and '~/...' (or '~\...') in 'home'; anything else - '~user', '$VAR', a plain path - as it is
+    std::filesystem::path ExpandUser(const std::string &path, const std::filesystem::path &home);
 }
 
 

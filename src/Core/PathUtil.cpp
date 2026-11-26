@@ -31,3 +31,17 @@ std::filesystem::path pathutil::CanonicalPath(const std::filesystem::path &pathN
     }
     return result;
 }
+
+std::filesystem::path pathutil::ExpandUser(const std::string &path, const std::filesystem::path &home) {
+    if (home.empty() || path.empty() || (path[0] != '~')) {
+        return path;
+    }
+    if (path.size() == 1) {
+        return home;
+    }
+    if ((path[1] != '/') && (path[1] != '\\')) {
+        return path;
+    }
+    auto rest = path.substr(2);
+    return rest.empty() ? home : home / rest;
+}

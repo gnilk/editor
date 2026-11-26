@@ -3,7 +3,9 @@
 //
 
 #include <cstdlib>
+#include <fcntl.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #if defined(GEDIT_MACOS)
 #include <mach-o/dyld.h>
@@ -78,4 +80,65 @@ std::filesystem::path Platform::ExecutablePath() {
         return {};
     }
     return exePath;
+}
+
+std::optional<std::filesystem::path> Platform::FindExecutable(const std::string &name, const std::string &pathVariable,
+                                                              const std::vector<std::filesystem::path> &moreDirs) {
+    if (name.empty() || (name.find('/') != std::string::npos)) {
+        return {};
+    }
+    std::vector<std::filesystem::path> dirs;
+    size_t start = 0;
+    while (start <= pathVariable.size()) {
+        auto end = pathVariable.find(':', start);
+        if (end == std::string::npos) {
+            end = pathVariable.size();
+        }
+        if (end > start) {
+            dirs.emplace_back(pathVariable.substr(start, end - start));
+        }
+        start = end + 1;
+    }
+    dirs.insert(dirs.end(), moreDirs.begin(), moreDirs.end());
+    for (auto &dir : dirs) {
+        auto candidate = dir / name;
+        std::error_code ec;
+        if (std::filesystem::is_regular_file(candidate, ec) && (::access(candidate.c_str(), X_OK) == 0)) {
+            return candidate;
+        }
+    }
+    return {};
+}
+
+// Stage to <file>.tmp, fsync, then rename over the target (rename is atomic on a POSIX filesystem)
+bool Platform::WriteFileAtomic(const std::filesystem::path &path, const std::string &content) {
+    std::filesystem::path tmpPath = path;
+    tmpPath += ".tmp";
+
+    int fd = ::open(tmpPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) {
+        return false;
+    }
+    size_t remaining = content.size();
+    const char *ptr = content.data();
+    while (remaining > 0) {
+        ssize_t n = ::write(fd, ptr, remaining);
+        if (n < 0) {
+            ::close(fd);
+            ::unlink(tmpPath.c_str());
+            return false;
+        }
+        ptr += n;
+        remaining -= static_cast<size_t>(n);
+    }
+    ::fsync(fd);
+    ::close(fd);
+
+    std::error_code ec;
+    std::filesystem::rename(tmpPath, path, ec);
+    if (ec) {
+        std::filesystem::remove(tmpPath, ec);
+        return false;
+    }
+    return true;
 }

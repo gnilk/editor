@@ -7,9 +7,12 @@
 #include <chrono>
 #include <ctime>
 #include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <string>
 
 #include "Core/Platform.h"
+#include "Core/PathUtil.h"
 
 using namespace gedit;
 
@@ -19,6 +22,8 @@ extern "C" {
     DLL_EXPORT int test_platform_env(ITesting *t);
     DLL_EXPORT int test_platform_localtime(ITesting *t);
     DLL_EXPORT int test_platform_exepath(ITesting *t);
+    DLL_EXPORT int test_platform_atomicwrite(ITesting *t);
+    DLL_EXPORT int test_platform_expanduser(ITesting *t);
 }
 
 DLL_EXPORT int test_platform(ITesting *t) {
@@ -78,5 +83,50 @@ DLL_EXPORT int test_platform_exepath(ITesting *t) {
     TR_ASSERT(t, exePath.is_absolute());
     TR_ASSERT(t, std::filesystem::exists(exePath));
     TR_ASSERT(t, exePath.filename().string().find("trun") != std::string::npos);
+    return kTR_Pass;
+}
+
+static std::string ReadAll(const std::filesystem::path &path) {
+    std::ifstream in(path, std::ios::binary);
+    std::stringstream text;
+    text << in.rdbuf();
+    return text.str();
+}
+
+DLL_EXPORT int test_platform_atomicwrite(ITesting *t) {
+    auto dir = std::filesystem::temp_directory_path() / "goatedit_platform_atomicwrite";
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+    auto file = dir / "session.yml";
+
+    TR_ASSERT(t, Platform::WriteFileAtomic(file, "first\n"));
+    TR_ASSERT(t, ReadAll(file) == "first\n");
+    // Over an existing file: replaced whole, the temp file gone
+    TR_ASSERT(t, Platform::WriteFileAtomic(file, "second"));
+    TR_ASSERT(t, ReadAll(file) == "second");
+    TR_ASSERT(t, !std::filesystem::exists(dir / "session.yml.tmp"));
+    // A dir that isn't there: fails, writes nothing
+    TR_ASSERT(t, !Platform::WriteFileAtomic(dir / "missing" / "x.yml", "x"));
+    TR_ASSERT(t, !std::filesystem::exists(dir / "missing"));
+
+    std::filesystem::remove_all(dir);
+    return kTR_Pass;
+}
+
+DLL_EXPORT int test_platform_expanduser(ITesting *t) {
+    std::filesystem::path home = "/home/goat";
+    TR_ASSERT(t, pathutil::ExpandUser("~", home) == home);
+    TR_ASSERT(t, pathutil::ExpandUser("~/", home) == home);
+    TR_ASSERT(t, pathutil::ExpandUser("~/.gedit", home) == home / ".gedit");
+    TR_ASSERT(t, pathutil::ExpandUser("~/a/b.js", home) == home / "a/b.js");
+    // Windows' separator after the '~'
+    TR_ASSERT(t, pathutil::ExpandUser("~\\.gedit", home) == home / ".gedit");
+    // Left as they are
+    TR_ASSERT(t, pathutil::ExpandUser("~other/x", home) == "~other/x");
+    TR_ASSERT(t, pathutil::ExpandUser("bootstrap.script", home) == "bootstrap.script");
+    TR_ASSERT(t, pathutil::ExpandUser("/abs/~/x", home) == "/abs/~/x");
+    TR_ASSERT(t, pathutil::ExpandUser("", home).empty());
+    // No home: nothing to expand to
+    TR_ASSERT(t, pathutil::ExpandUser("~/.gedit", {}) == "~/.gedit");
     return kTR_Pass;
 }

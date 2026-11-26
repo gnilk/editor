@@ -14,6 +14,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace gedit::Platform {
     // 'linux', 'macos' or 'windows' - the keymap's and config.yml's platform section
@@ -34,6 +35,15 @@ namespace gedit::Platform {
 
     // The running executable, symlinks resolved; empty when the system won't say
     std::filesystem::path ExecutablePath();
+
+    // An executable called 'name' (a plain name, no directory part): in the dirs of 'pathVariable' (a PATH value, in
+    // the platform's syntax), then in 'moreDirs'. Windows also tries the PATHEXT extensions ('claude' finds claude.cmd)
+    std::optional<std::filesystem::path> FindExecutable(const std::string &name, const std::string &pathVariable,
+                                                        const std::vector<std::filesystem::path> &moreDirs = {});
+
+    // Writes 'content' so that a crash leaves either the old file or the new one, never half of it: a temp file next
+    // to it, flushed to disk, then put in its place
+    bool WriteFileAtomic(const std::filesystem::path &path, const std::string &content);
 }
 
 #endif //GOATEDIT_PLATFORM_H

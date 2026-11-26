@@ -59,7 +59,6 @@
 #endif
 
 #include <sys/stat.h>
-#include <wordexp.h>
 #include <unistd.h>
 
 #include "Core/XDGEnvironment.h"
@@ -868,10 +867,7 @@ void Editor::RunPostInitalizationScript() {
 
     auto scriptFiles = Config::Instance()["main"].GetSequenceOfStr("bootstrap_scripts");
     for(auto &scriptFile : scriptFiles) {
-        wordexp_t exp_result;
-        wordexp(scriptFile.c_str(), &exp_result, 0);
-        std::string strScript(exp_result.we_wordv[0]);
-        wordfree(&exp_result);
+        auto strScript = pathutil::ExpandUser(scriptFile, UserDirs::Home()).string();
         logger->Debug("Trying: %s", strScript);
 
         // Verify if shell exists...

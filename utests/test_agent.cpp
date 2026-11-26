@@ -19,6 +19,7 @@
 #include "Core/Editor.h"
 #include "Core/Editor/AgentAsk.h"
 #include "Core/RuntimeConfig.h"
+#include "Core/Platform.h"
 
 using namespace gedit;
 
@@ -153,13 +154,13 @@ DLL_EXPORT int test_agent_find_executable(ITesting *t) {
     std::filesystem::permissions(dir / "extra" / "other", std::filesystem::perms::owner_all);
     auto path = (dir / "a").string() + "::" + (dir / "b").string();
 
-    auto found = AgentIntegrations::FindExecutable("tool", path, {});
+    auto found = Platform::FindExecutable("tool", path, {});
     TR_ASSERT(t, found.has_value() && (found.value() == dir / "b" / "tool"));
-    TR_ASSERT(t, !AgentIntegrations::FindExecutable("other", path, {}).has_value());
-    auto extra = AgentIntegrations::FindExecutable("other", path, {dir / "extra"});
+    TR_ASSERT(t, !Platform::FindExecutable("other", path, {}).has_value());
+    auto extra = Platform::FindExecutable("other", path, {dir / "extra"});
     TR_ASSERT(t, extra.has_value() && (extra.value() == dir / "extra" / "other"));
-    TR_ASSERT(t, !AgentIntegrations::FindExecutable("b/tool", dir.string(), {}).has_value());
-    TR_ASSERT(t, !AgentIntegrations::FindExecutable("", path, {}).has_value());
+    TR_ASSERT(t, !Platform::FindExecutable("b/tool", dir.string(), {}).has_value());
+    TR_ASSERT(t, !Platform::FindExecutable("", path, {}).has_value());
     std::filesystem::remove_all(dir);
     return kTR_Pass;
 }

@@ -15,6 +15,7 @@
 #include "Core/Theme/Theme.h"
 #include "Core/Theme/ThemeImporter.h"
 #include "Core/UserDirs.h"
+#include "Core/PathUtil.h"
 #include "ConfigAPI.h"
 #include "ThemesAPI.h"
 
@@ -327,10 +328,7 @@ static ThemeImporter::Provenance ProvenanceAround(const std::filesystem::path &t
 }
 
 static std::filesystem::path ResolveSourcePath(const std::string &file) {
-    std::filesystem::path path = file;
-    if (file.starts_with("~/")) {
-        path = UserDirs::Home() / file.substr(2);
-    }
+    auto path = pathutil::ExpandUser(file, UserDirs::Home());
     std::error_code ec;
     auto absPath = std::filesystem::absolute(path, ec).lexically_normal();
     return ec ? path : absPath;

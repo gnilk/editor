@@ -5,12 +5,12 @@
 #include <cctype>
 #include <cstdlib>
 #include <random>
-#include <unistd.h>
 
 #include "AgentIntegrations.h"
 #include "ClaudeAgent.h"
 #include "NoAgent.h"
 #include "Core/UserDirs.h"
+#include "Core/Platform.h"
 
 using namespace gedit;
 
@@ -29,7 +29,6 @@ std::vector<std::string> AgentIntegrations::Names() {
 }
 
 std::optional<std::filesystem::path> AgentIntegrations::FindExecutable(const std::string &name) {
-    auto pathVariable = std::getenv("PATH");
     std::vector<std::filesystem::path> moreDirs;
     if (auto &home = UserDirs::Home(); !home.empty()) {
         moreDirs.push_back(home / ".local" / "bin");
@@ -37,35 +36,7 @@ std::optional<std::filesystem::path> AgentIntegrations::FindExecutable(const std
     }
     moreDirs.emplace_back("/opt/homebrew/bin");
     moreDirs.emplace_back("/usr/local/bin");
-    return FindExecutable(name, (pathVariable != nullptr) ? pathVariable : "", moreDirs);
-}
-
-std::optional<std::filesystem::path> AgentIntegrations::FindExecutable(const std::string &name, const std::string &pathVariable,
-                                                                       const std::vector<std::filesystem::path> &moreDirs) {
-    if (name.empty() || (name.find('/') != std::string::npos)) {
-        return {};
-    }
-    std::vector<std::filesystem::path> dirs;
-    size_t start = 0;
-    while (start <= pathVariable.size()) {
-        auto end = pathVariable.find(':', start);
-        if (end == std::string::npos) {
-            end = pathVariable.size();
-        }
-        if (end > start) {
-            dirs.emplace_back(pathVariable.substr(start, end - start));
-        }
-        start = end + 1;
-    }
-    dirs.insert(dirs.end(), moreDirs.begin(), moreDirs.end());
-    for (auto &dir : dirs) {
-        auto candidate = dir / name;
-        std::error_code ec;
-        if (std::filesystem::is_regular_file(candidate, ec) && (access(candidate.c_str(), X_OK) == 0)) {
-            return candidate;
-        }
-    }
-    return {};
+    return Platform::FindExecutable(name, Platform::GetEnvOr("PATH", ""), moreDirs);
 }
 
 std::string AgentIntegrations::ShellCommandLine(const std::vector<std::string> &command) {

@@ -2,8 +2,6 @@
 // Created by gnilk on 15.06.26.
 //
 
-#include <fcntl.h>
-#include <unistd.h>
 #include <filesystem>
 #include <string>
 
@@ -13,43 +11,15 @@
 #include "Core/AssetLoaderBase.h"
 #include "Core/Config/Config.h"
 #include "Core/UI/Views/ViewBase.h"
+#include "Core/Platform.h"
 
 using namespace gedit;
 
-// Crash-safe write: stage to <file>.tmp, fsync, then rename over the target (rename is atomic on a POSIX
-// filesystem). A crash mid-write leaves the previous file intact; never a half-written session.
+// Crash-safe write: a crash mid-write leaves the previous file intact; never a half-written session
 static bool AtomicWrite(const std::filesystem::path &path, const std::string &content) {
     std::error_code ec;
     std::filesystem::create_directories(path.parent_path(), ec);   // defensive; kProject dir normally exists
-
-    std::filesystem::path tmpPath = path;
-    tmpPath += ".tmp";
-
-    int fd = ::open(tmpPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fd < 0) {
-        return false;
-    }
-    size_t remaining = content.size();
-    const char *ptr = content.data();
-    while (remaining > 0) {
-        ssize_t n = ::write(fd, ptr, remaining);
-        if (n < 0) {
-            ::close(fd);
-            ::unlink(tmpPath.c_str());
-            return false;
-        }
-        ptr += n;
-        remaining -= static_cast<size_t>(n);
-    }
-    ::fsync(fd);
-    ::close(fd);
-
-    std::filesystem::rename(tmpPath, path, ec);
-    if (ec) {
-        std::filesystem::remove(tmpPath, ec);
-        return false;
-    }
-    return true;
+    return Platform::WriteFileAtomic(path, content);
 }
 
 SessionManager &SessionManager::Instance() {

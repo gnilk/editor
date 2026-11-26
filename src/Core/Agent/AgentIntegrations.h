@@ -22,10 +22,8 @@ namespace gedit {
 
         // An executable by name: on $PATH, else in the places an installer puts one - a Mac app started from the Dock
         // doesn't get the shell's PATH ('~/.local/bin', '~/.claude/local', '/opt/homebrew/bin', '/usr/local/bin')
+        // (the search itself: Platform::FindExecutable)
         static std::optional<std::filesystem::path> FindExecutable(const std::string &name);
-        // The same, with the search spelled out (tests)
-        static std::optional<std::filesystem::path> FindExecutable(const std::string &name, const std::string &pathVariable,
-                                                                   const std::vector<std::filesystem::path> &moreDirs);
 
         // --- The Editor Agent's tab (agent-integration.md §6.2) ---
         // A command as one shell line - words with anything but [A-Za-z0-9_./=:+-] in single quotes

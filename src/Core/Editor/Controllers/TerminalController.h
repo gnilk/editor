@@ -20,7 +20,7 @@
 #include "Core/UI/Controllers/BaseController.h"
 #include "Core/RuntimeConfig.h"
 #include "Core/Config/ConfigNode.h"
-#include "Core/unix/Shell.h"
+#include "Core/PtySession.h"
 #include "Core/TerminalScreen.h"
 #include "Core/TerminalCmdHistory.h"
 #include "gvt/Terminal.h"
@@ -43,7 +43,7 @@ namespace gedit {
         void SetSettings(const ConfigNode &newSettings);
         const ConfigNode &Settings() const { return settings; }
         // The shell's directory now (read from its process); empty when it isn't known
-        std::string WorkingDirectory() { return shell.GetWorkingDirectory(); }
+        std::string WorkingDirectory() { return shell->GetWorkingDirectory(); }
 
         void Begin() override;
         void Resize(int cols, int rows);
@@ -170,7 +170,7 @@ namespace gedit {
         bool ToSession(std::string &outScrollbackFile);
 
         // FromSession loads the .bin (LoadWithAttributes - missing/corrupt -> no-op) and seeds
-        // the scrollback via TerminalScreen::SeedScrollback. MUST be called before shell.Begin().
+        // the scrollback via TerminalScreen::SeedScrollback. MUST be called before shell->Begin().
         void FromSession(const std::string &scrollbackFile);
 
         // The tab this terminal is (docs/panel-tabs.md, hitlist #53). 'id' names its files - scrollback
@@ -249,7 +249,8 @@ namespace gedit {
 
     private:
         ConfigNode settings = ConfigNode(YAML::Node(YAML::NodeType::Map));
-        Shell shell;
+        // The platform's (PtySession::Create): forkpty on unix, ConPTY on Windows
+        PtySession::Ref shell = PtySession::Create();
         TerminalCmdHistory cmdHistory;
         std::filesystem::path cmdHistoryPath;
         // The tab's files (SetSessionTab)

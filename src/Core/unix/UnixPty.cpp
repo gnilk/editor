@@ -28,7 +28,7 @@
 #include <logger.h>
 
 #include "Core/UnicodeHelper.h"
-#include "Shell.h"
+#include "UnixPty.h"
 #include "Core/Platform.h"
 
 #ifndef GEDIT_DEFAULT_POLL_TMO_MS
@@ -37,7 +37,11 @@
 
 using namespace gedit;
 
-Shell::~Shell() {
+PtySession::Ref PtySession::Create() {
+    return std::make_shared<UnixPty>();
+}
+
+UnixPty::~UnixPty() {
     Close();
     for (auto &fd : wakeFds) {
         if (fd >= 0) {
@@ -47,7 +51,7 @@ Shell::~Shell() {
     }
 }
 
-bool Shell::Begin(const std::string &shell, const std::string &args,
+bool UnixPty::Begin(const std::string &shell, const std::string &args,
                   const std::vector<std::string> &initScript) {
     logger = gnilk::Logger::GetLogger("Shell");
     if (reader.joinable()) {
@@ -63,7 +67,7 @@ bool Shell::Begin(const std::string &shell, const std::string &args,
     return true;
 }
 
-bool Shell::StartShellProc(const std::string &configuredShell, const std::string &shellInitStr) {
+bool UnixPty::StartShellProc(const std::string &configuredShell, const std::string &shellInitStr) {
     auto shell = ResolveShellBinary(configuredShell);
     if (shell.empty()) {
         logger->Error("No usable shell found (configured '%s', $SHELL, /bin/sh)", configuredShell.c_str());
@@ -89,7 +93,7 @@ bool Shell::StartShellProc(const std::string &configuredShell, const std::string
             ::fcntl(wakeFds[1], F_SETFL, O_NONBLOCK);
         }
         // Joined by Close() - never detached: it holds 'this' and calls the output delegate
-        reader = std::thread(&Shell::ConsumePty, this);
+        reader = std::thread(&UnixPty::ConsumePty, this);
     } else if (pid == 0) {
         // Child — pty slave is already stdin/stdout/stderr; just exec.
         // Set TERM so ncurses-based programs (less, vi, ...) find their
@@ -109,7 +113,7 @@ bool Shell::StartShellProc(const std::string &configuredShell, const std::string
 
 // The configured shell if it is executable, otherwise the user's login shell ($SHELL), otherwise /bin/sh.
 // An empty configured value means "use $SHELL". Returns empty when none of them is usable.
-std::string Shell::ResolveShellBinary(const std::string &configured) {
+std::string UnixPty::ResolveShellBinary(const std::string &configured) {
     auto isExecutable = [](const std::string &path) {
         return !path.empty() && (::access(path.c_str(), X_OK) == 0);
     };
@@ -131,7 +135,7 @@ std::string Shell::ResolveShellBinary(const std::string &configured) {
     return {};
 }
 
-void Shell::SetWindowSize(int cols, int rows) {
+void UnixPty::SetWindowSize(int cols, int rows) {
     if (amaster < 0) {
         return;
     }
@@ -141,7 +145,7 @@ void Shell::SetWindowSize(int cols, int rows) {
     ioctl(amaster, TIOCSWINSZ, &ws);
 }
 
-void Shell::SendInitScript(const std::vector<std::string> &initScript) {
+void UnixPty::SendInitScript(const std::vector<std::string> &initScript) {
     logger->Debug("Executing shell bootstrap script");
     for (const auto &s : initScript) {
         std::u32string strCmd;
@@ -153,7 +157,7 @@ void Shell::SendInitScript(const std::vector<std::string> &initScript) {
     }
 }
 
-int Shell::SendCmd(std::u32string &cmd) {
+int UnixPty::SendCmd(std::u32string &cmd) {
     std::string utf8;
     if (!UnicodeHelper::ConvertUTF32ToUTF8String(utf8, cmd)) {
         logger->Error("SendCmd, failed to convert to UTF-8");
@@ -162,15 +166,15 @@ int Shell::SendCmd(std::u32string &cmd) {
     return write(amaster, utf8.c_str(), utf8.size());
 }
 
-int Shell::Write(uint8_t chr) {
+int UnixPty::Write(uint8_t chr) {
     return write(amaster, &chr, 1);
 }
 
-int Shell::WriteBytes(const std::string &data) {
+int UnixPty::WriteBytes(const std::string &data) {
     return write(amaster, data.c_str(), data.size());
 }
 
-bool Shell::IsForegroundJobRunning() const {
+bool UnixPty::IsForegroundJobRunning() const {
     if ((amaster < 0) || (pid <= 0)) {
         return false;
     }
@@ -178,7 +182,7 @@ bool Shell::IsForegroundJobRunning() const {
     return (foreground > 0) && (foreground != pid);
 }
 
-std::string Shell::GetWorkingDirectory() const {
+std::string UnixPty::GetWorkingDirectory() const {
     // An ended shell's pid can be another process by now
     if ((pid <= 0) || (GetState() == State::kTerminated)) {
         return {};
@@ -200,7 +204,7 @@ std::string Shell::GetWorkingDirectory() const {
 #endif
 }
 
-void Shell::Close() {
+void UnixPty::Close() {
     if (!reader.joinable()) {
         return;
     }
@@ -216,14 +220,14 @@ void Shell::Close() {
     reader.join();
 }
 
-void Shell::WakeReader() {
+void UnixPty::WakeReader() {
     if (wakeFds[1] >= 0) {
         uint8_t byte = 1;
         [[maybe_unused]] auto n = ::write(wakeFds[1], &byte, 1);
     }
 }
 
-void Shell::CleanUp() {
+void UnixPty::CleanUp() {
     if (amaster >= 0) {
         ::close(amaster);
         amaster = -1;
@@ -234,7 +238,7 @@ void Shell::CleanUp() {
 // it (trap '' HUP) gets a grace period and then SIGKILL - the quit must not hang on it. Our end of the pty closes
 // first: nobody reads it any more, and on macOS a shell that exits with output still queued for us (bash 5 on the
 // hangup) waits in the kernel for it to drain - SIGKILL doesn't end that wait, and waitpid never returned.
-void Shell::ReapChild() {
+void UnixPty::ReapChild() {
     static constexpr int kGraceMs = 500;
     static constexpr int kKilledGraceMs = 1000;
     if (GetState() == State::kTerminate) {
@@ -264,7 +268,7 @@ void Shell::ReapChild() {
     }
 }
 
-pid_t Shell::WaitForChild(int &status, int timeoutMs) {
+pid_t UnixPty::WaitForChild(int &status, int timeoutMs) {
     auto tEnd = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
     pid_t reaped = 0;
     while ((reaped = waitpid(pid, &status, WNOHANG)) == 0) {
@@ -276,7 +280,7 @@ pid_t Shell::WaitForChild(int &status, int timeoutMs) {
     return reaped;
 }
 
-void Shell::CloseInheritedFds() {
+void UnixPty::CloseInheritedFds() {
     // In the child, before exec: only close() - async-signal-safe after fork in a threaded process
     auto maxFd = sysconf(_SC_OPEN_MAX);
     if ((maxFd < 0) || (maxFd > MAX_FD_TO_CLOSE)) {
@@ -287,7 +291,7 @@ void Shell::CloseInheritedFds() {
     }
 }
 
-void Shell::ConsumePty() {
+void UnixPty::ConsumePty() {
     if (pid < 0) {
         CleanUp();
         return;

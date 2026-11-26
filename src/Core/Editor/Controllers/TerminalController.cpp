@@ -54,7 +54,7 @@ TerminalController::TerminalController() {
 
 TerminalController::~TerminalController() {
     // First: the pty reader calls into the screen and this controller - it must be gone before they are
-    shell.Close();
+    shell->Close();
     {
         std::lock_guard<std::mutex> guard(syncTimerLock);
         isSyncTimerStopping = true;
@@ -80,10 +80,10 @@ void TerminalController::Begin() {
     inputLine = std::make_shared<Line>();
     inputCursor.position.x = 0;
 
-    shell.SetOutputDelegate([this](const uint8_t *buffer, size_t length) {
+    shell->SetOutputDelegate([this](const uint8_t *buffer, size_t length) {
         HandleTerminalData(buffer, length);
     });
-    shell.SetExitDelegate([this]() {
+    shell->SetExitDelegate([this]() {
         OnShellEnded();
     });
     auto altArrows = settings.GetStr("alt_arrows", "");
@@ -92,7 +92,7 @@ void TerminalController::Begin() {
     }
 
     // Restore persisted scrollback (terminal-scrollback.md §8.2) BEFORE the shell starts - the pty
-    // thread mutates the grid the instant shell.Begin() returns, so the seeded history must already be in
+    // thread mutates the grid the instant shell->Begin() returns, so the seeded history must already be in
     // place. A no-op when nothing was saved, the feature is off, or the .bin is missing/corrupt.
     FromSession(restoreScrollbackFile);
     StartShell();
@@ -110,7 +110,7 @@ void TerminalController::StartShell() {
         shellInitScript.insert(shellInitScript.end(), osc133.begin(), osc133.end());
     }
 
-    if (!shell.Begin(shellBinary, shellInitStr, shellInitScript)) {
+    if (!shell->Begin(shellBinary, shellInitStr, shellInitScript)) {
         // No pty thread was started, so the state never leaves kIdle - waiting for kRunning would spin
         // forever before the first frame. Carry on without one - the panel says so.
         logger->Error("Shell failed to start - terminal is unavailable");
@@ -118,8 +118,8 @@ void TerminalController::StartShell() {
         return;
     }
 
-    while (shell.GetState() != Shell::State::kRunning) {
-        if (shell.GetState() == Shell::State::kTerminated) {
+    while (shell->GetState() != PtySession::State::kRunning) {
+        if (shell->GetState() == PtySession::State::kTerminated) {
             logger->Error("Shell got terminated while starting!");
             return;
         }
@@ -157,14 +157,14 @@ void TerminalController::OnShellEnded() {
 
 // UI thread. In the same panel: its scrollback, its size, what is typed on the line.
 void TerminalController::RestartShell() {
-    shell.Close();
+    shell->Close();
     if (doesShellOwnLineEditing) {
         ExitShellOwned();
     }
     isShellEnded = false;
     StartShell();
     std::lock_guard<std::mutex> guard(screenLock);
-    shell.SetWindowSize(screen.Cols(), screen.Rows());
+    shell->SetWindowSize(screen.Cols(), screen.Rows());
 }
 
 // A '.goatedit' marker directory in the project registers a kProject search path; its presence opts the
@@ -305,7 +305,7 @@ void TerminalController::Resize(int cols, int rows) {
     std::lock_guard<std::mutex> guard(screenLock);
     ApplyThemeColors();
     screen.Resize(cols, rows);
-    shell.SetWindowSize(cols, rows);
+    shell->SetWindowSize(cols, rows);
 }
 
 void TerminalController::RefreshThemeColors() {
@@ -512,7 +512,7 @@ void TerminalController::WriteToPty(std::string_view bytes) {
         ptyWriter(bytes);
         return;
     }
-    shell.WriteBytes(std::string(bytes));
+    shell->WriteBytes(std::string(bytes));
 }
 
 // OSC 133 (§4.2). The first marker switches the CommitLine heuristic off (useOsc133Boundaries): from then on the
@@ -761,7 +761,7 @@ bool TerminalController::IsAppActive() {
 }
 
 bool TerminalController::IsForegroundJobRunning() {
-    return foregroundJobProbe ? foregroundJobProbe() : shell.IsForegroundJobRunning();
+    return foregroundJobProbe ? foregroundJobProbe() : shell->IsForegroundJobRunning();
 }
 
 gnilk::vt::Modes TerminalController::GetModes() {
@@ -1140,7 +1140,7 @@ void TerminalController::CommitLine() {
             OnShellCommand(cmdLine);
         }
         cmdLine += U"\n";
-        shell.SendCmd(cmdLine);
+        shell->SendCmd(cmdLine);
     }
 
     ScrollToBottom();   // §5.3: committing a line snaps the viewport back to the bottom
@@ -1166,7 +1166,7 @@ void TerminalController::RunDotCommand(const std::u32string &cmdLine) {
         screen.Feed("\x1b[A");
     }
     static auto newline = std::u32string(U"\n");
-    shell.SendCmd(newline);
+    shell->SendCmd(newline);
 }
 
 // A committed command line - typed locally (CommitLine) or finished in readline after Tab (ForwardActionToShell):
@@ -1188,7 +1188,7 @@ void TerminalController::OnShellCommand(const std::u32string &cmdLine) {
     auto &editor = Editor::Instance();
     auto &roots = editor.GetIndexedRoots();
     auto projectRoot = roots.empty() ? std::string{} : roots.front().string();
-    editor.GetBuildMessages().OnCommand(UnicodeHelper::utf32to8(cmdLine), shell.GetWorkingDirectory(), projectRoot, this);
+    editor.GetBuildMessages().OnCommand(UnicodeHelper::utf32to8(cmdLine), shell->GetWorkingDirectory(), projectRoot, this);
 }
 
 void TerminalController::MarkCommandOutput() {

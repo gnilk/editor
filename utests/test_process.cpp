@@ -16,7 +16,7 @@
 
 
 #include "Core/Process.h"
-#include "Core/unix/Shell.h"
+#include "Core/unix/UnixPty.h"
 
 using namespace gedit;
 namespace fs = std::filesystem;
@@ -231,7 +231,7 @@ DLL_EXPORT int test_process_startonce(ITesting *t) {
 // stopped the pty reader, and the terminal showed nothing from then on while the shell still ran the commands.
 DLL_EXPORT int test_process_shellsurvives(ITesting *t) {
     // Static, so the delegate's locals are gone before it is - the shell has exited by then (see the end)
-    static Shell shell;
+    static UnixPty shell;
     std::mutex lock;
     std::string output;
     shell.SetOutputDelegate([&lock, &output](const uint8_t *buffer, size_t length) {
@@ -240,15 +240,15 @@ DLL_EXPORT int test_process_shellsurvives(ITesting *t) {
     });
     TR_ASSERT(t, shell.Begin("/bin/sh", "-i", {}));
     auto tEnd = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-    while ((shell.GetState() != Shell::State::kRunning) && (std::chrono::steady_clock::now() < tEnd)) {
+    while ((shell.GetState() != PtySession::State::kRunning) && (std::chrono::steady_clock::now() < tEnd)) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    TR_ASSERT(t, shell.GetState() == Shell::State::kRunning);
+    TR_ASSERT(t, shell.GetState() == PtySession::State::kRunning);
 
     // One of the editor's own children comes and goes
     TR_ASSERT(t, Process::Create("true", {})->Run().exitCode == 0);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    TR_ASSERT(t, shell.GetState() == Shell::State::kRunning);
+    TR_ASSERT(t, shell.GetState() == PtySession::State::kRunning);
 
     std::u32string cmd = U"echo goat_$((40+2))\n";
     shell.SendCmd(cmd);
@@ -264,7 +264,7 @@ DLL_EXPORT int test_process_shellsurvives(ITesting *t) {
     std::u32string exitCmd = U"exit\n";
     shell.SendCmd(exitCmd);
     tEnd = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-    while ((shell.GetState() != Shell::State::kTerminated) && (std::chrono::steady_clock::now() < tEnd)) {
+    while ((shell.GetState() != PtySession::State::kTerminated) && (std::chrono::steady_clock::now() < tEnd)) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     shell.SetOutputDelegate(nullptr);
@@ -275,7 +275,7 @@ DLL_EXPORT int test_process_shellsurvives(ITesting *t) {
 
 
 namespace {
-    bool WaitForShellState(const Shell &shell, Shell::State state, int timeoutMs) {
+    bool WaitForShellState(const PtySession &shell, PtySession::State state, int timeoutMs) {
         auto tEnd = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
         while ((shell.GetState() != state) && (std::chrono::steady_clock::now() < tEnd)) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -288,18 +288,18 @@ namespace {
 // nothing waited for it - the TerminalController (and its Shell) went away while the reader was still in poll().
 // Close() must return only when the reader is gone, so the Shell can be destroyed right after.
 DLL_EXPORT int test_process_shellclose(ITesting *t) {
-    auto shell = std::make_unique<Shell>();
+    auto shell = std::make_unique<UnixPty>();
     std::atomic<size_t> nBytes { 0 };
     shell->SetOutputDelegate([&nBytes](const uint8_t *, size_t length) {
         nBytes += length;
     });
     TR_ASSERT(t, shell->Begin("/bin/sh", "-i", {}));
-    TR_ASSERT(t, WaitForShellState(*shell, Shell::State::kRunning, 3000));
+    TR_ASSERT(t, WaitForShellState(*shell, PtySession::State::kRunning, 3000));
 
     auto tStart = std::chrono::steady_clock::now();
     shell->Close();
     auto msClose = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - tStart).count();
-    bool isStopped = (shell->GetState() == Shell::State::kTerminated);
+    bool isStopped = (shell->GetState() == PtySession::State::kTerminated);
     if (!isStopped) {
         // The reader is still running and holds 'this' - destroying the Shell now would be the crash itself
         shell.release();
@@ -313,27 +313,27 @@ DLL_EXPORT int test_process_shellclose(ITesting *t) {
 // A shell that ends by itself is told about, once, and a new one can be started in its place (hitlist #82); one that
 // Close() ended is not
 DLL_EXPORT int test_process_shellexit(ITesting *t) {
-    Shell shell;
+    UnixPty shell;
     std::atomic<int> nExits { 0 };
     std::atomic<bool> isTerminatedAtExit { false };
     shell.SetOutputDelegate([](const uint8_t *, size_t) {});
     shell.SetExitDelegate([&shell, &nExits, &isTerminatedAtExit]() {
-        isTerminatedAtExit = (shell.GetState() == Shell::State::kTerminated);
+        isTerminatedAtExit = (shell.GetState() == PtySession::State::kTerminated);
         nExits++;
     });
     std::u32string cmd = U"exit\n";
     for (int round = 1; round <= 2; round++) {
         TR_ASSERT(t, shell.Begin("/bin/sh", "-i", {}));
-        TR_ASSERT(t, WaitForShellState(shell, Shell::State::kRunning, 3000));
+        TR_ASSERT(t, WaitForShellState(shell, PtySession::State::kRunning, 3000));
         shell.SendCmd(cmd);
-        TR_ASSERT(t, WaitForShellState(shell, Shell::State::kTerminated, 3000));
+        TR_ASSERT(t, WaitForShellState(shell, PtySession::State::kTerminated, 3000));
         // Joins the reader: the delegate has returned
         shell.Close();
         TR_ASSERT(t, nExits == round);
         TR_ASSERT(t, isTerminatedAtExit);
     }
     TR_ASSERT(t, shell.Begin("/bin/sh", "-i", {}));
-    TR_ASSERT(t, WaitForShellState(shell, Shell::State::kRunning, 3000));
+    TR_ASSERT(t, WaitForShellState(shell, PtySession::State::kRunning, 3000));
     shell.Close();
     TR_ASSERT(t, nExits == 2);
     return kTR_Pass;
@@ -341,7 +341,7 @@ DLL_EXPORT int test_process_shellexit(ITesting *t) {
 
 // A shell (or a job) that ignores the hangup must not hang the quit: Close() ends it anyway, in bounded time
 DLL_EXPORT int test_process_shellclose_ignoreshup(ITesting *t) {
-    auto shell = std::make_unique<Shell>();
+    auto shell = std::make_unique<UnixPty>();
     std::mutex lock;
     std::string output;
     shell->SetOutputDelegate([&lock, &output](const uint8_t *buffer, size_t length) {
@@ -349,7 +349,7 @@ DLL_EXPORT int test_process_shellclose_ignoreshup(ITesting *t) {
         output.append(reinterpret_cast<const char *>(buffer), length);
     });
     TR_ASSERT(t, shell->Begin("/bin/sh", "-i", {}));
-    TR_ASSERT(t, WaitForShellState(*shell, Shell::State::kRunning, 3000));
+    TR_ASSERT(t, WaitForShellState(*shell, PtySession::State::kRunning, 3000));
     std::u32string cmd = U"trap '' HUP; echo trap_$((1+1))\n";
     shell->SendCmd(cmd);
     bool isTrapped = false;
@@ -364,7 +364,7 @@ DLL_EXPORT int test_process_shellclose_ignoreshup(ITesting *t) {
     auto tStart = std::chrono::steady_clock::now();
     shell->Close();
     auto msClose = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - tStart).count();
-    bool isStopped = (shell->GetState() == Shell::State::kTerminated);
+    bool isStopped = (shell->GetState() == PtySession::State::kTerminated);
     if (!isStopped) {
         shell.release();
     }
@@ -378,7 +378,7 @@ DLL_EXPORT int test_process_shellclose_ignoreshup(ITesting *t) {
 // queued for us. The reader has stopped reading by then (it waits for the shell) - and on macOS the exiting shell
 // waits in the kernel for that output to drain, SIGKILL or not. Our end of the pty closes before the wait.
 DLL_EXPORT int test_process_shellclose_output_on_hup(ITesting *t) {
-    auto shell = std::make_unique<Shell>();
+    auto shell = std::make_unique<UnixPty>();
     std::mutex lock;
     std::string output;
     shell->SetOutputDelegate([&lock, &output](const uint8_t *buffer, size_t length) {
@@ -386,7 +386,7 @@ DLL_EXPORT int test_process_shellclose_output_on_hup(ITesting *t) {
         output.append(reinterpret_cast<const char *>(buffer), length);
     });
     TR_ASSERT(t, shell->Begin("/bin/sh", "-i", {}));
-    TR_ASSERT(t, WaitForShellState(*shell, Shell::State::kRunning, 3000));
+    TR_ASSERT(t, WaitForShellState(*shell, PtySession::State::kRunning, 3000));
     std::u32string cmd = U"trap 'head -c 4000 /dev/zero | tr \"\\0\" x; exit' HUP; echo trap_$((1+1))\n";
     shell->SendCmd(cmd);
     bool isTrapped = false;
@@ -415,7 +415,7 @@ DLL_EXPORT int test_process_shellclose_output_on_hup(ITesting *t) {
     }
     TR_ASSERT(t, isClosed);
     closer.join();
-    TR_ASSERT(t, shell->GetState() == Shell::State::kTerminated);
+    TR_ASSERT(t, shell->GetState() == PtySession::State::kTerminated);
     shell.reset();
     return kTR_Pass;
 }
@@ -425,7 +425,7 @@ DLL_EXPORT int test_process_shellclose_output_on_hup(ITesting *t) {
 // that outlives the hangup (an agent) kept writing into a pty nobody reads, the dying shell waited in the kernel, and
 // Close() never returned. With a second shell running, closing the first must end in bounded time - and its job with it.
 DLL_EXPORT int test_process_shellclose_second_shell(ITesting *t) {
-    auto first = std::make_unique<Shell>();
+    auto first = std::make_unique<UnixPty>();
     std::mutex lock;
     std::string output;
     first->SetOutputDelegate([&lock, &output](const uint8_t *buffer, size_t length) {
@@ -435,7 +435,7 @@ DLL_EXPORT int test_process_shellclose_second_shell(ITesting *t) {
         }
     });
     TR_ASSERT(t, first->Begin("/bin/sh", "-i", {}));
-    TR_ASSERT(t, WaitForShellState(*first, Shell::State::kRunning, 3000));
+    TR_ASSERT(t, WaitForShellState(*first, PtySession::State::kRunning, 3000));
     // The job ignores SIGHUP (kept across exec) and writes for ever
     std::u32string cmd = U"sh -c 'echo job_pid=$$; trap \"\" HUP; exec yes'\n";
     first->SendCmd(cmd);
@@ -455,10 +455,10 @@ DLL_EXPORT int test_process_shellclose_second_shell(ITesting *t) {
     TR_ASSERT(t, jobPid > 0);
 
     // The second shell - forked while the first's master is open in this process
-    auto second = std::make_unique<Shell>();
+    auto second = std::make_unique<UnixPty>();
     second->SetOutputDelegate([](const uint8_t *, size_t) {});
     TR_ASSERT(t, second->Begin("/bin/sh", "-i", {}));
-    TR_ASSERT(t, WaitForShellState(*second, Shell::State::kRunning, 3000));
+    TR_ASSERT(t, WaitForShellState(*second, PtySession::State::kRunning, 3000));
 
     std::atomic<bool> isClosed = false;
     std::thread closer([&first, &isClosed]() {
@@ -486,7 +486,7 @@ DLL_EXPORT int test_process_shellclose_second_shell(ITesting *t) {
         TR_ASSERT(t, isClosed);
     }
     closer.join();
-    TR_ASSERT(t, first->GetState() == Shell::State::kTerminated);
+    TR_ASSERT(t, first->GetState() == PtySession::State::kTerminated);
     TR_ASSERT(t, isJobGone);
     return kTR_Pass;
 }

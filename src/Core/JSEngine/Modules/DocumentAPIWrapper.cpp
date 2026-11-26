@@ -22,6 +22,11 @@ void DocumentAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method(ctx, &DocumentAPIWrapper::Reload, "Reload");
     dukglue_register_method(ctx, &DocumentAPIWrapper::GetEncoding, "GetEncoding");
     dukglue_register_method(ctx, &DocumentAPIWrapper::SetEncoding, "SetEncoding");
+    dukglue_register_method(ctx, &DocumentAPIWrapper::GetLineEndings, "GetLineEndings");
+    dukglue_register_method(ctx, &DocumentAPIWrapper::SetLineEndings, "SetLineEndings");
+    dukglue_register_method(ctx, &DocumentAPIWrapper::GetPreferredLineEndings, "GetPreferredLineEndings");
+    dukglue_register_method(ctx, &DocumentAPIWrapper::IsLineEndingsQuestion, "IsLineEndingsQuestion");
+    dukglue_register_method(ctx, &DocumentAPIWrapper::KeepLineEndings, "KeepLineEndings");
     dukglue_register_method(ctx, &DocumentAPIWrapper::GotoLine, "GotoLine");
     dukglue_register_method(ctx, &DocumentAPIWrapper::ReformatFile, "ReformatFile");
     dukglue_register_method(ctx, &DocumentAPIWrapper::ReformatBlock, "ReformatBlock");
@@ -84,6 +89,41 @@ bool DocumentAPIWrapper::SetEncoding(const char *name) {
         return false;
     }
     return document->SetEncoding(name);
+}
+
+const std::string DocumentAPIWrapper::GetLineEndings() {
+    if (document == nullptr) {
+        return {};
+    }
+    return document->GetLineEndings();
+}
+
+bool DocumentAPIWrapper::SetLineEndings(const char *name) {
+    if ((document == nullptr) || (name == nullptr)) {
+        return false;
+    }
+    return document->SetLineEndings(name);
+}
+
+const std::string DocumentAPIWrapper::GetPreferredLineEndings() {
+    if (document == nullptr) {
+        return {};
+    }
+    return document->GetPreferredLineEndings();
+}
+
+bool DocumentAPIWrapper::IsLineEndingsQuestion() {
+    if (document == nullptr) {
+        return false;
+    }
+    return document->IsLineEndingsQuestion();
+}
+
+void DocumentAPIWrapper::KeepLineEndings() {
+    if (document == nullptr) {
+        return;
+    }
+    document->KeepLineEndings();
 }
 
 bool DocumentAPIWrapper::GotoLine(int lineNumber) {

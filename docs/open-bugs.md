@@ -4,9 +4,18 @@ Durable list of known defects we've chosen NOT to fix in-place yet, with enough 
 up cold. Referenced from CLAUDE.md ("Documentation") so it surfaces each session.
 
 Numbers are stable (commits, docs and notes refer to them) - a fixed bug is removed, never renumbered.
-**Next bug is #38.**
+**Next bug is #39.**
 
 ---
+
+## 38. macOS: an asset-only change (a plugin script, config.yml) doesn't reach the app bundle until the binary relinks
+
+Found 2026-11-26 (line endings, `savebuffer.js`). The bundle's `SharedSupport` is filled by a `POST_BUILD` command on
+the `goatedit` target (`CMakeLists.txt`, "copies the 'goatedit' (shared resource folder) in to the application bundle").
+`POST_BUILD` runs only when the target is relinked - a change to a `.js` or `.yml` alone updates `cmake-build-debug/resources`
+(the `resources` target) but not the bundle, so the app (and `checks.py --exe .../goatedit.app/...`) runs the old script.
+Linux is not affected (it reads `<exedir>/resources`). Workaround: `touch main.cpp` and build. Fix: a custom target
+(or a command with the asset files as `DEPENDS`) that the bundle copy hangs off, instead of `POST_BUILD`.
 
 ## 34. Intermittent: a full trun run hangs (0% CPU), once at `modal_confirmhotkey`
 

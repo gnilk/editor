@@ -143,6 +143,13 @@ commands:
     arguments:
       - string, encoding name (optional)
   -
+    name: line_endings
+    short: eol
+    description: Show the active buffer's line endings (unix, windows or mixed); '.line_endings windows' (unix, platform) converts every line - written on the next save
+    script: Scripts/lineendings.js
+    arguments:
+      - string, unix / windows / platform (optional)
+  -
     name: goto
     short: g
     description: Go to a line of the active buffer (counts from 1; the caret lands on its first non-blank; Cmd+[ comes back) - quick mode 'g' types '.g ' for you

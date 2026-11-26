@@ -1195,6 +1195,81 @@ def latin1(n):
     n(data.startswith('Räksmörgås\nåäö ÅÄÖ\n'.encode('cp1252')), 'still cp1252 bytes on disk')
 
 
+@check('#81 Line endings: kept on save, a mixed file asks, .line_endings converts')
+def line_endings(n):
+    sb, work = sandbox('line_endings')
+    user_config(sb, 'main:\n  autosave_timeout_ms: 0\n  line_endings: unix\n')
+    crlf = os.path.join(work, 'crlf.txt')
+    mixed = os.path.join(work, 'mixed.txt')
+    write(crlf, b'one\r\ntwo\r\n', 'wb')
+    write(mixed, b'unix\nwindows\r\nunix\n', 'wb')
+
+    def read(path):
+        with open(path, 'rb') as f:
+            return f.read()
+
+    g = Goat(sb, ['crlf.txt'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        g.send(alt('e'), 0.5)
+        n('CRLF' in g.status_line(), f'a CRLF file: the status line says CRLF ({g.status_line().strip()[:70]})')
+        g.send(END, 0.1)
+        g.send(ENTER, 0.1)
+        g.type('added', wait=0.3)
+        g.quick('.s', 1.0)
+        n(read(crlf) == b'one\r\nadded\r\ntwo\r\n', f'Enter in it: the new line is CRLF too ({read(crlf)!r})')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+    g = Goat(sb, ['mixed.txt'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        g.send(alt('e'), 0.5)
+        n('Mixed' in g.status_line(), f'a mixed file: the status line says Mixed ({g.status_line().strip()[:70]})')
+        g.send(END, 0.1)
+        g.type('!', wait=0.3)
+        g.quick('.s', 1.0)
+        n(g.wait_text('both unix and windows line endings', 2.0), 'its save asks first')
+        g.send(ESC, 0.5)
+        n(read(mixed) == b'unix\nwindows\r\nunix\n', 'Esc (Cancel): not saved')
+        g.quick('.s', 1.0)
+        n(g.wait_text('both unix and windows line endings', 2.0), 'asked again after Cancel')
+        g.type('k', wait=1.0)
+        n(read(mixed) == b'unix!\nwindows\r\nunix\n', f'Keep: each line as it was ({read(mixed)!r})')
+        g.send(alt('e'), 0.3)
+        g.type('?', wait=0.3)
+        g.quick('.s', 1.0)
+        n(g.screen.find('both unix and windows') is None, 'Keep is not asked again for this buffer')
+        n(read(mixed) == b'unix!?\nwindows\r\nunix\n', 'saved, still mixed')
+        g.quick('.line_endings', 0.8)
+        n(g.wait_text('Line endings: mixed', 2.0), "'.line_endings' says mixed")
+        g.quick('.line_endings windows', 0.8)
+        g.quick('.s', 1.0)
+        n(read(mixed) == b'unix!?\r\nwindows\r\nunix\r\n', f"'.line_endings windows' + '.s': all CRLF ({read(mixed)!r})")
+        n('CRLF' in g.status_line(), 'the status line says CRLF')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+    # 'All unix' converts
+    write(mixed, b'unix\nwindows\r\nunix\n', 'wb')
+    g = Goat(sb, ['mixed.txt'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        g.send(alt('e'), 0.5)
+        g.send(END, 0.1)
+        g.type('!', wait=0.3)
+        g.quick('.s', 1.0)
+        n(g.wait_text('both unix and windows line endings', 2.0), 'a new buffer asks again')
+        g.type('a', wait=1.0)
+        n(read(mixed) == b'unix!\nwindows\nunix\n', f'All unix: converted ({read(mixed)!r})')
+        n('Mixed' not in g.status_line() and 'CRLF' not in g.status_line(), 'the status line says nothing more')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
 @check('#42 #43 Go to line')
 def goto_line(n):
     sb, work = sandbox('goto_line')

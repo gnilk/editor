@@ -430,18 +430,21 @@ void TextBuffer::TakeCleanBaseline() {
     std::lock_guard<std::mutex> guard(cleanBaselineLock);
     cleanBaseline = std::move(hashes);
     cleanBaselineEncoding = encoding;
+    cleanBaselineLineEndings = lineEndingsGeneration;
     hasCleanBaseline = true;
 }
 
 // Cheap: no baseline (never loaded from a file) or another line count can't be clean - no need to hash
 bool TextBuffer::CanMatchCleanBaseline(size_t numLines) {
     std::lock_guard<std::mutex> guard(cleanBaselineLock);
-    return hasCleanBaseline && (cleanBaseline.size() == numLines) && (cleanBaselineEncoding == encoding);
+    return hasCleanBaseline && (cleanBaseline.size() == numLines) && (cleanBaselineEncoding == encoding)
+           && (cleanBaselineLineEndings == lineEndingsGeneration);
 }
 
 bool TextBuffer::MatchesCleanBaseline(const std::vector<uint64_t> &hashes) {
     std::lock_guard<std::mutex> guard(cleanBaselineLock);
-    return hasCleanBaseline && (cleanBaselineEncoding == encoding) && (hashes == cleanBaseline);
+    return hasCleanBaseline && (cleanBaselineEncoding == encoding) && (cleanBaselineLineEndings == lineEndingsGeneration)
+           && (hashes == cleanBaseline);
 }
 
 // UI thread: the sweep found the lines as last loaded/saved. Taken only when nothing was edited since it started.
@@ -814,7 +817,8 @@ bool TextBuffer::Load(const std::filesystem::path &pathName) {
 
     std::vector<std::u32string> fileLines;
     TextEncoding::kEncoding fileEncoding = TextEncoding::kEncoding::kUTF8;
-    if (!ReadLines(pathName, fileLines, &fileEncoding)) {
+    FileLineEndings fileEndings;
+    if (!ReadLines(pathName, fileLines, &fileEncoding, &fileEndings)) {
         return false;
     }
     encoding = fileEncoding;
@@ -823,6 +827,7 @@ bool TextBuffer::Load(const std::filesystem::path &pathName) {
     for (auto &text : fileLines) {
         AddLine(text);
     }
+    SetFileLineEndings(fileEndings);
     // Change state, do this before UpdateLang - since lang checks if loaded before allowing parse to happen
     ChangeBufferState(kBuffer_Loaded);
     TakeCleanBaseline();
@@ -834,13 +839,24 @@ bool TextBuffer::Load(const std::filesystem::path &pathName) {
 // longer than GEDIT_MAX_LINE_LENGTH is split. An empty file is one empty line.
 // As ReadLines: a line per '\n', converted, trailing white space off; no line after a last '\n'; at least one line
 // A line as the editor holds it: trailing whitespace (and a '\r') dropped, longer than GEDIT_MAX_LINE_LENGTH split
-static void AppendLine(std::u32string_view text, std::vector<std::u32string> &outLines) {
+// 'isEnded': a '\n' came after the text - a '\r' before it makes the line a CRLF one (docs/windows-port.md §4.2); the last
+// line without a newline has no ending of its own.
+static void AppendLine(std::u32string_view text, bool isEnded, std::vector<std::u32string> &outLines,
+                       gedit::TextBuffer::FileLineEndings *outEndings) {
+    using gedit::kLineEnding;
+    auto ending = kLineEnding::kDefault;
+    if (isEnded) {
+        ending = (!text.empty() && (text.back() == U'\r')) ? kLineEnding::kCRLF : kLineEnding::kLF;
+    }
     const size_t maxLength = GEDIT_MAX_LINE_LENGTH - 1;
     do {
         auto length = std::min(maxLength, text.size());
         std::u32string line(text.substr(0, length));
         strutil::rtrim(line);
         outLines.push_back(std::move(line));
+        if (outEndings != nullptr) {
+            outEndings->endings.push_back(ending);
+        }
         text.remove_prefix(length);
     } while (!text.empty());
 }
@@ -848,16 +864,24 @@ static void AppendLine(std::u32string_view text, std::vector<std::u32string> &ou
 // Split at '\n' - a final '\n' ends the last line, it doesn't start one; an empty text is one empty line. Except in
 // UTF-16 a '\n' byte is always a line break, so the bytes are split first and each line decoded on its own - no copy
 // of the whole text in UTF-32.
-static void DecodeLines(std::string_view bytes, gedit::TextEncoding::kEncoding encoding, std::vector<std::u32string> &outLines) {
+static void DecodeLines(std::string_view bytes, gedit::TextEncoding::kEncoding encoding, std::vector<std::u32string> &outLines,
+                        gedit::TextBuffer::FileLineEndings *outEndings = nullptr) {
     using kEncoding = gedit::TextEncoding::kEncoding;
     outLines.clear();
+    // Ends with a newline unless the last line says otherwise; an empty file has none
+    bool hasFinalNewline = false;
+    if (outEndings != nullptr) {
+        outEndings->endings.clear();
+    }
     if ((encoding == kEncoding::kUTF16LE) || (encoding == kEncoding::kUTF16BE)) {
         auto text = gedit::TextEncoding::Decode(bytes, encoding);
         std::u32string_view rest = text;
         while (!rest.empty()) {
             auto idxEnd = rest.find(U'\n');
-            AppendLine(rest.substr(0, idxEnd), outLines);
-            if (idxEnd == std::u32string_view::npos) {
+            bool isEnded = (idxEnd != std::u32string_view::npos);
+            AppendLine(rest.substr(0, idxEnd), isEnded, outLines, outEndings);
+            hasFinalNewline = isEnded;
+            if (!isEnded) {
                 break;
             }
             rest.remove_prefix(idxEnd + 1);
@@ -871,8 +895,10 @@ static void DecodeLines(std::string_view bytes, gedit::TextEncoding::kEncoding e
         auto lineEncoding = (encoding == kEncoding::kUTF8BOM) ? kEncoding::kUTF8 : encoding;
         while (!bytes.empty()) {
             auto idxEnd = bytes.find('\n');
-            AppendLine(gedit::TextEncoding::Decode(bytes.substr(0, idxEnd), lineEncoding), outLines);
-            if (idxEnd == std::string_view::npos) {
+            bool isEnded = (idxEnd != std::string_view::npos);
+            AppendLine(gedit::TextEncoding::Decode(bytes.substr(0, idxEnd), lineEncoding), isEnded, outLines, outEndings);
+            hasFinalNewline = isEnded;
+            if (!isEnded) {
                 break;
             }
             bytes.remove_prefix(idxEnd + 1);
@@ -880,6 +906,12 @@ static void DecodeLines(std::string_view bytes, gedit::TextEncoding::kEncoding e
     }
     if (outLines.empty()) {
         outLines.emplace_back();
+        if (outEndings != nullptr) {
+            outEndings->endings.push_back(gedit::kLineEnding::kDefault);
+        }
+    }
+    if (outEndings != nullptr) {
+        outEndings->hasFinalNewline = hasFinalNewline;
     }
 }
 
@@ -894,7 +926,7 @@ void TextBuffer::SplitLines(std::string_view text, std::vector<std::u32string> &
 }
 
 bool TextBuffer::ReadLines(const std::filesystem::path &pathName, std::vector<std::u32string> &outLines,
-                           TextEncoding::kEncoding *outEncoding) {
+                           TextEncoding::kEncoding *outEncoding, FileLineEndings *outEndings) {
     outLines.clear();
     // One read of the whole file - the encoding is a property of all of it, not of a line
     std::ifstream file(pathName, std::ios::binary | std::ios::ate);
@@ -907,7 +939,7 @@ bool TextBuffer::ReadLines(const std::filesystem::path &pathName, std::vector<st
         return false;
     }
     auto fileEncoding = TextEncoding::Detect(bytes, EncodingFallback());
-    DecodeLines(bytes, fileEncoding, outLines);
+    DecodeLines(bytes, fileEncoding, outLines, outEndings);
     if (outEncoding != nullptr) {
         *outEncoding = fileEncoding;
     }
@@ -919,6 +951,32 @@ void TextBuffer::SetEncoding(TextEncoding::kEncoding newEncoding) {
         return;
     }
     encoding = newEncoding;
+    editCounter++;
+    ChangeBufferState(kBuffer_Changed);
+}
+
+void TextBuffer::SetFileLineEndings(const FileLineEndings &fileEndings) {
+    lineEndingCounts = {};
+    for (size_t idxLine = 0; idxLine < lines.size(); idxLine++) {
+        auto ending = (idxLine < fileEndings.endings.size()) ? fileEndings.endings[idxLine] : kLineEnding::kDefault;
+        lines[idxLine]->SetLineEnding(ending);
+        lineEndingCounts.Add(ending);
+    }
+    hasFinalNewline = fileEndings.hasFinalNewline;
+    isMixedLineEndingsKept = false;
+}
+
+kLineEnding TextBuffer::GetDominantLineEnding() const {
+    return lineEndingCounts.Dominant(LineEndings::Preferred());
+}
+
+void TextBuffer::ConvertLineEndings(kLineEnding ending) {
+    lineEndingCounts = {};
+    for (auto &line : lines) {
+        line->SetLineEnding(ending);
+        lineEndingCounts.Add(ending);
+    }
+    lineEndingsGeneration++;
     editCounter++;
     ChangeBufferState(kBuffer_Changed);
 }
@@ -953,11 +1011,27 @@ bool TextBuffer::DoSave(const std::filesystem::path &pathName, bool skipChangeCh
     if ((policy == "auto") && !TextEncoding::IsUnicode(saveEncoding)) {
         saveEncoding = TextEncoding::kEncoding::kUTF8;
     }
+    // Each line its own ending; a line an edit made (kDefault) the most lines' (docs/windows-port.md §4.2). A mixed file
+    // is converted here only by 'main.mixed_line_endings: convert' - 'ask' is the save command's question, before this
+    LineEndingCounts counts;
+    for (auto &line : lines) {
+        counts.Add(line->GetLineEnding());
+    }
+    auto preferred = LineEndings::Preferred();
+    if (counts.IsMixed() && !isMixedLineEndingsKept && (LineEndings::MixedPolicy() == LineEndings::kMixedPolicy::kConvert)) {
+        ConvertLineEndings(preferred);
+        counts = lineEndingCounts;
+    }
+    auto dominant = counts.Dominant(preferred);
+
     std::string data(TextEncoding::ByteOrderMark(saveEncoding));
     for (size_t idxLine = 0; idxLine < lines.size(); idxLine++) {
         size_t idxFailed = 0;
         auto &text = lines[idxLine]->Buffer();
-        if (!TextEncoding::Encode(text, saveEncoding, data, idxFailed) || !TextEncoding::Encode(U"\n", saveEncoding, data, idxFailed)) {
+        auto ending = lines[idxLine]->GetLineEnding();
+        bool isLast = ((idxLine + 1) == lines.size());
+        const char32_t *endingText = (isLast && !hasFinalNewline) ? U"" : LineEndings::Text((ending == kLineEnding::kDefault) ? dominant : ending);
+        if (!TextEncoding::Encode(text, saveEncoding, data, idxFailed) || !TextEncoding::Encode(endingText, saveEncoding, data, idxFailed)) {
             auto message = fmt::format("Not saved: line {} has U+{:04X}, which {} can't hold - '.encoding utf-8' converts the file",
                                        idxLine + 1, (uint32_t)text[idxFailed], TextEncoding::Name(saveEncoding));
             logger->Error("%s (%s)", message.c_str(), pathName.c_str());
@@ -985,6 +1059,16 @@ bool TextBuffer::DoSave(const std::filesystem::path &pathName, bool skipChangeCh
         return false;
     }
     encoding = saveEncoding;
+    // The lines now say what the file has
+    lineEndingCounts = {};
+    for (size_t idxLine = 0; idxLine < lines.size(); idxLine++) {
+        auto &line = lines[idxLine];
+        bool isLast = ((idxLine + 1) == lines.size());
+        if ((line->GetLineEnding() == kLineEnding::kDefault) && !(isLast && !hasFinalNewline)) {
+            line->SetLineEnding(dominant);
+        }
+        lineEndingCounts.Add(line->GetLineEnding());
+    }
 
     // Go back to 'clean' - i.e. data is loaded...
     ChangeBufferState(kBuffer_Loaded);

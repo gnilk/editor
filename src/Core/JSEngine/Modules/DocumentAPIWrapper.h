@@ -39,6 +39,11 @@ namespace gedit {
         const std::string GetLanguage();
         const std::string GetEncoding();
         bool SetEncoding(const char *name);
+        const std::string GetLineEndings();
+        bool SetLineEndings(const char *name);
+        const std::string GetPreferredLineEndings();
+        bool IsLineEndingsQuestion();
+        void KeepLineEndings();
         bool GotoLine(int lineNumber);
 
         const std::string GetName();

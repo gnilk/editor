@@ -195,6 +195,7 @@ Typed in quick mode (`Esc`, then `.name` or `.short`, `Enter`) or at the termina
 | `.save` | `.s` |  | Save active buffer (asks when the file was changed on disk; '!' saves anyway) |
 | `.reload` | `.rl` |  | Reload active buffer from disk (asks when it has changes not yet saved; '!' reloads anyway) |
 | `.encoding` | `.enc` | encoding name (optional) | Show the active buffer's encoding; '.encoding utf-8' (cp1252, latin1, utf-16le, ...) sets what the next save writes |
+| `.line_endings` | `.eol` | unix / windows / platform (optional) | Show the active buffer's line endings (unix, windows or mixed); '.line_endings windows' (unix, platform) converts every line - written on the next save |
 | `.goto` | `.g` | line | Go to a line of the active buffer (counts from 1; the caret lands on its first non-blank; Cmd+[ comes back) - quick mode 'g' types '.g ' for you |
 | `.fm_file` | `.fmf` |  | Reformat (reindent) the whole active buffer - not for languages where indentation is syntax (YAML) |
 | `.fm_block` | `.fmb` |  | Reformat (reindent) the selection, else the enclosing block, else the line - as Cmd+I |

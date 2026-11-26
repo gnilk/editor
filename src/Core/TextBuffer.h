@@ -74,10 +74,16 @@ namespace gedit {
         bool Save(const std::filesystem::path &pathName);
         bool SaveForce(const std::filesystem::path &pathName);
         bool Load(const std::filesystem::path &pathName);
+        // How a file's lines end, as read (docs/windows-port.md §4.2)
+        struct FileLineEndings {
+            // One per line - kDefault for a last line with no newline after it
+            std::vector<kLineEnding> endings;
+            bool hasFinalNewline = true;
+        };
         // A file's lines as Load reads them, without a buffer - what a reload compares against
         // The file's encoding is detected (TextEncoding::Detect, main.encoding_fallback for what isn't UTF-8)
         static bool ReadLines(const std::filesystem::path &pathName, std::vector<std::u32string> &outLines,
-                              TextEncoding::kEncoding *outEncoding = nullptr);
+                              TextEncoding::kEncoding *outEncoding = nullptr, FileLineEndings *outEndings = nullptr);
         // Text split into lines as ReadLines splits a file - the file as git has it
         static void SplitLines(std::string_view text, std::vector<std::u32string> &outLines);
         // The lines are what the file holds (a reload put them there): not changed, nothing to save
@@ -88,6 +94,29 @@ namespace gedit {
         }
         // Converting on purpose ('.encoding utf-8'): a change to save, even with no line touched
         void SetEncoding(TextEncoding::kEncoding newEncoding);
+
+        // --- Line endings (docs/windows-port.md §4.2, LineEnding.h) ---
+        // Each line as the file has it (a reload put the lines there) - one ending per line
+        void SetFileLineEndings(const FileLineEndings &fileEndings);
+        // The lines' own endings, as counted at the last load / convert / save - never per keystroke
+        const LineEndingCounts &GetLineEndingCounts() const {
+            return lineEndingCounts;
+        }
+        // What a line an edit made is written with: most lines' ending, main.line_endings when none says
+        kLineEnding GetDominantLineEnding() const;
+        // Converting on purpose ('.line_endings windows'): every line gets 'ending' - a change to save
+        void ConvertLineEndings(kLineEnding ending);
+        // Whether the file ended with a newline - kept on save ('false' for a file read without one)
+        bool HasFinalNewline() const {
+            return hasFinalNewline;
+        }
+        // A mixed file's save asked, and the answer was 'keep': not asked again for this buffer
+        bool IsMixedLineEndingsKept() const {
+            return isMixedLineEndingsKept;
+        }
+        void KeepMixedLineEndings() {
+            isMixedLineEndingsKept = true;
+        }
 
         // Called with the buffer's structure after a pause in editing (docs/code-index.md §4.4), on the parse
         // thread: no text copy, no lexing, just what the lines carry. Line numbers are the current ones.
@@ -362,6 +391,12 @@ namespace gedit {
         bool hasCleanBaseline = false;
         TextEncoding::kEncoding cleanBaselineEncoding = TextEncoding::kEncoding::kUTF8;
         std::atomic<TextEncoding::kEncoding> encoding = TextEncoding::kEncoding::kUTF8;
+        // A convert is a change even when the text comes back to the baseline (as the encoding is)
+        uint32_t lineEndingsGeneration = 0;
+        uint32_t cleanBaselineLineEndings = 0;
+        LineEndingCounts lineEndingCounts = {};
+        bool hasFinalNewline = true;
+        bool isMixedLineEndingsKept = false;
         WorkspaceNamesSource workspaceNamesSource = nullptr;
         std::chrono::steady_clock::time_point timeNamesChanged = {};
         // What deleted lines declared - deleted on the UI thread, taken out of 'semanticNames' by the next scan

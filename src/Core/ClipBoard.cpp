@@ -102,6 +102,11 @@ void ClipBoard::ClipBoardItem::CopyFromExternal(const char *srcData) {
     while (true) {
         size_t nl = src.find('\n', pos);
         std::string lineUtf8 = (nl == std::string::npos) ? src.substr(pos) : src.substr(pos, nl - pos);
+        // A Windows program's CRLF: the '\r' is the line break's, not text - the pasted lines take the ending of the
+        // line they land in (docs/windows-port.md §4.2)
+        if ((nl != std::string::npos) && !lineUtf8.empty() && (lineUtf8.back() == '\r')) {
+            lineUtf8.pop_back();
+        }
         std::u32string tmp;
         UnicodeHelper::ConvertUTF8ToUTF32String(tmp, lineUtf8);
         data.push_back(tmp);    // keep empty segments too (preserves a trailing line break)

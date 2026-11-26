@@ -35,6 +35,11 @@ main:
   #       stops the save - '.encoding utf-8' converts on purpose)
   # auto: a save always writes UTF-8
   convert_encoding: keep
+  # A line keeps the ending it was read with; a line you add takes the file's (docs/windows-port.md §4.2).
+  # unix (LF) | windows (CRLF) | platform (windows on Windows, unix elsewhere) - a new file's, and what 'convert' makes
+  line_endings: platform
+  # A file with both - ask (at its first save: keep or convert) | keep (each line as it is) | convert (to line_endings)
+  mixed_line_endings: ask
   plugin_directory: Plugins
   bootstrap_script_comment: "//"
   cmdlet_prefix: "."

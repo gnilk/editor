@@ -42,6 +42,16 @@ namespace gedit {
         const std::string GetEncoding();
         // False for a name TextEncoding doesn't know
         bool SetEncoding(const std::string &name);
+        // The file's line endings: "unix", "windows" or "mixed" (docs/windows-port.md §4.2)
+        const std::string GetLineEndings();
+        // Converts every line: "unix" / "windows" / "platform" (also "lf" / "crlf"); false for another name
+        bool SetLineEndings(const std::string &name);
+        // main.line_endings on this platform: "unix" / "windows" - what a convert makes
+        const std::string GetPreferredLineEndings();
+        // The save should ask first: a mixed file, main.mixed_line_endings 'ask', not answered 'keep' yet
+        bool IsLineEndingsQuestion();
+        // The answer was 'keep': each line as it is, not asked again for this buffer
+        void KeepLineEndings();
         // '.goto <line>': counts from 1; past the end is the last line (ActionHelper::GotoLine)
         bool GotoLine(int lineNumber);
 

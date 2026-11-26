@@ -400,7 +400,8 @@ bool Document::IsChangedOnDisk() {
 bool Document::ReloadFromDisk() {
     std::vector<std::u32string> newLines;
     auto diskEncoding = TextEncoding::kEncoding::kUTF8;
-    if (!TextBuffer::ReadLines(path, newLines, &diskEncoding)) {
+    TextBuffer::FileLineEndings diskEndings;
+    if (!TextBuffer::ReadLines(path, newLines, &diskEncoding, &diskEndings)) {
         return false;
     }
     auto &oldLines = textBuffer->Lines();
@@ -433,6 +434,8 @@ bool Document::ReloadFromDisk() {
         std::vector<std::u32string> replacement(newLines.begin() + (long)idxFirst, newLines.begin() + (long)idxNewEnd);
         ReplaceLineRange(idxFirst, idxOldEnd - 1, replacement);
     }
+    // The kept lines too: a file that only changed its line endings compares equal above
+    textBuffer->SetFileLineEndings(diskEndings);
     textBuffer->MarkInSyncWithDisk(diskEncoding);
     TakeDiskStamp();
     isConflictOnDisk = false;

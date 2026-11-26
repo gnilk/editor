@@ -15,6 +15,7 @@
 #include <functional>
 
 #include "Core/TextAttributes.h"
+#include "Core/LineEnding.h"
 #include "Core/Language/LanguageTokenClass.h"
 #include "Core/ColorRGBA.h"
 #include "Core/Index/LineStructure.h"
@@ -57,6 +58,14 @@ namespace gedit {
         static Line::Ref Create(const Line::Ref &other);
         // The chars [idxStart, idxEnd) with their attributes, as a line of its own: spans cut at the edges, first one at 0
         Line::Ref CopyOfRange(size_t idxStart, size_t idxEnd) const;
+
+        // What the line was read with - kDefault for a line an edit made (LineEnding.h)
+        kLineEnding GetLineEnding() const {
+            return lineEnding;
+        }
+        void SetLineEnding(kLineEnding newLineEnding) {
+            lineEnding = newLineEnding;
+        }
 
 
         void SetOnChangeDelegate(OnChangeDelegate newOnChangeDelegate) {
@@ -152,6 +161,7 @@ namespace gedit {
         //bool active = false;
         int indent = 0;
         bool selected = false;
+        kLineEnding lineEnding = kLineEnding::kDefault;
         OnChangeDelegate cbChanged = nullptr;
     private:
         // This tells us how deeply nested the language state stack is at this point

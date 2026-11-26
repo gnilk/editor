@@ -5,6 +5,8 @@
 #include "Core/Editor.h"
 #include "DocumentAPI.h"
 #include "Core/ActionHelper.h"
+#include "Core/Platform.h"
+#include "Core/LineEnding.h"
 
 using namespace gedit;
 
@@ -78,6 +80,47 @@ const std::string DocumentAPI::GetEncoding() {
         return {};
     }
     return TextEncoding::Name(document->GetDocument()->GetTextBuffer()->GetEncoding());
+}
+
+const std::string DocumentAPI::GetLineEndings() {
+    if ((document == nullptr) || (document->GetDocument() == nullptr)) {
+        return {};
+    }
+    auto textBuffer = document->GetDocument()->GetTextBuffer();
+    if (textBuffer->GetLineEndingCounts().IsMixed()) {
+        return "mixed";
+    }
+    return LineEndings::Name(textBuffer->GetDominantLineEnding());
+}
+
+bool DocumentAPI::SetLineEndings(const std::string &name) {
+    auto ending = LineEndings::FromName(name, Platform::Name());
+    if (!ending.has_value() || (document == nullptr) || (document->GetDocument() == nullptr)) {
+        return false;
+    }
+    document->GetDocument()->GetTextBuffer()->ConvertLineEndings(*ending);
+    Editor::Instance().TriggerUIRedraw();
+    return true;
+}
+
+const std::string DocumentAPI::GetPreferredLineEndings() {
+    return LineEndings::Name(LineEndings::Preferred());
+}
+
+bool DocumentAPI::IsLineEndingsQuestion() {
+    if ((document == nullptr) || (document->GetDocument() == nullptr)) {
+        return false;
+    }
+    auto textBuffer = document->GetDocument()->GetTextBuffer();
+    return textBuffer->GetLineEndingCounts().IsMixed() && !textBuffer->IsMixedLineEndingsKept()
+           && (LineEndings::MixedPolicy() == LineEndings::kMixedPolicy::kAsk);
+}
+
+void DocumentAPI::KeepLineEndings() {
+    if ((document == nullptr) || (document->GetDocument() == nullptr)) {
+        return;
+    }
+    document->GetDocument()->GetTextBuffer()->KeepMixedLineEndings();
 }
 
 bool DocumentAPI::SetEncoding(const std::string &name) {

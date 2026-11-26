@@ -37,6 +37,7 @@ Line::Line(const Line::Ref &other) {
     attribs = other->attribs;
     indent = other->indent;
     selected = other->selected;
+    lineEnding = other->lineEnding;
     cbChanged = other->cbChanged;
     stateDepthAtStart = other->stateDepthAtStart;
 }

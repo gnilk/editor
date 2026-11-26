@@ -367,6 +367,13 @@ std::pair<std::u32string, std::u32string> EditorView::GetStatusBarInfo() {
         statusCenter += UnicodeHelper::utf8to32(TextEncoding::Name(encoding));
         statusCenter += U" ";
     }
+    // Line endings too - only when they differ from main.line_endings (docs/windows-port.md §4.2)
+    auto &lineEndingCounts = activeDocument->GetTextBuffer()->GetLineEndingCounts();
+    if (lineEndingCounts.IsMixed()) {
+        statusCenter += U"Mixed ";
+    } else if (auto lineEnding = activeDocument->GetTextBuffer()->GetDominantLineEnding(); lineEnding != LineEndings::Preferred()) {
+        statusCenter += (lineEnding == kLineEnding::kCRLF) ? U"CRLF " : U"LF ";
+    }
     if (node->IsMissingOnDisk()) {
         // Gone from disk (kept open) - cleared by the save that re-creates it
         statusCenter += U"[DELETED] ";

@@ -36,13 +36,14 @@ target_compile_definitions(fmt PUBLIC FMT_EXCEPTIONS=0)
 list(APPEND extlibs fmt)
 
 # ---------------------------------------------------------------------------
-# gnklog — pinned SHA (own lib, no stable tag; 2026-11-16: its warning options are PRIVATE)
+# gnklog — pinned SHA (own lib, no stable tag; 2026-11-16: its warning options are PRIVATE; 2026-11-26: no <Windows.h>
+# in its headers)
 # ---------------------------------------------------------------------------
 set(LOG_HAVE_FMT ON)
 set(LOG_FMT_DIR ${fmt_SOURCE_DIR})
 FetchContent_Declare(gnklog
     GIT_REPOSITORY https://github.com/gnilk/gnklog
-    GIT_TAG        fbdb625e1e231bac95c69c2ea6d6acf84c6d274b
+    GIT_TAG        216d08b8a001e9a8d536f2a458a8cd1d5076a7a6
     GIT_SHALLOW    FALSE
 )
 FetchContent_MakeAvailable(gnklog)

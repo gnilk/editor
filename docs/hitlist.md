@@ -84,11 +84,12 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
 - **Text weight** (#54) - `sdl.text_gamma` (default 1.2, the user's pick - VS Code's 1.5 match was too dark; 1.0 = as before)
   - [x] Linux [x] Mac - the window, Dark 2026 or Mariana: text heavier than before, edges not blurred or blocky; `.cfg --user set sdl.text_gamma 1.0` + restart = the old look; side by side with VS Code (Mac 2026-11-19: 1.5 matches VS Code, 1.2 kept as the default)
 - **A shell that ends** (#82) - scripted (`shell_ended`: `exit`, killed in full screen, from readline, the Editor Agent's tab)
-  - [ ] Linux [ ] Mac - the window: `exit` in the Shell tab - the notice, Enter: a new prompt below it; in the Claude tab, quit
+  - [ ] Linux [x] Mac - the window: `exit` in the Shell tab - the notice, Enter: a new prompt below it; in the Claude tab, quit
     `claude` and `exit`: Enter starts `claude` again (its bootstrap); Linux also: `sleep 60 &` then `exit` - the notice comes at once
 - **Unbound Ctrl keys go to the shell** (decided 2026-11-19) - scripted: `terminalcontroller ctrl_to_shell`
-  - [ ] Linux [ ] Mac - the window, at the local prompt: type `echo one two`, `Left` x4, `Ctrl+W` - the shell deletes `one`; `Ctrl+U` / `Ctrl+K` / `Ctrl+Y` work; `Ctrl+D` on an empty line does nothing (the shell stays); `Ctrl+T` (Linux) still opens Go to symbol
+  - [ ] Linux [x] Mac - the window, at the local prompt: type `echo one two`, `Left` x4, `Ctrl+W` - the shell deletes `one`; `Ctrl+U` / `Ctrl+K` / `Ctrl+Y` work; `Ctrl+D` on an empty line does nothing (the shell stays); `Ctrl+T` (Linux) still opens Go to symbol
     - Mac 2026-11-25: all but `Ctrl+D` - after the others it ended the shell (readline had the line, every key went through).
+      Fixed in `b56b4f80`; Mac 2026-11-26: `Ctrl+D` on the empty line leaves the shell.
       Fixed: held back on an empty line (`terminalcontroller ctrl_d_shell_owned`, zsh + bash in a pty); to try again
 - **Font styles in themes** (#55)
   - [x] Linux [x] Mac - the window: `.theme use vscode-dark-2026`, open a `.md` file - `# headings`, `**strong**` and `---` bold, `*emphasis*` italic, links underlined; C++ looks as before (no bold names); `.theme use default theme` - code plain, Markdown headings / `**strong**` bold and `*emphasis*` italic (added by hand 2026-11-19)

@@ -1,9 +1,10 @@
 //
 // Created by gnilk on 28.05.2026.
 //
-// The headless backend (`--backend headless`, what every trun case runs on). With the ANSI backend in the build it
-// draws into a Gansi cell grid over a terminal IO that keeps nothing it is sent - so a test can read back what a view
-// drew (Dump, CellAt) instead of the draw calls being dropped. Without it, the old screen whose draw calls do nothing.
+// The headless backend (`--backend headless`, what every trun case runs on). With the gansi library in the build
+// (GEDIT_HAVE_GANSI - every platform, Windows too, also where the ANSI backend isn't) it draws into a Gansi cell grid
+// over a terminal IO that keeps nothing it is sent - so a test can read back what a view drew (Dump, CellAt) instead of
+// the draw calls being dropped. Without it, the old screen whose draw calls do nothing.
 // See docs/usability-round.md §5b.
 //
 
@@ -20,7 +21,7 @@
 #include "Core/UI/Graphics/KeyboardDriverBase.h"
 #include "Core/UnicodeHelper.h"
 
-#ifdef GEDIT_USE_ANSI
+#ifdef GEDIT_HAVE_GANSI
 #include "Core/Graphics/Gansi/GansiScreen.h"
 #include "gansi/ITerminalIO.h"
 #include "gansi/Terminal.h"
@@ -32,7 +33,7 @@ namespace gedit {
     static constexpr int kHeadlessCols = 100;
     static constexpr int kHeadlessRows = 100;
 
-#ifdef GEDIT_USE_ANSI
+#ifdef GEDIT_HAVE_GANSI
 
     // A terminal of a fixed size with no input; what is written to it is dropped, so no ANSI piles up over a test run
     class HeadlessTerminalIO : public gnilk::ansi::ITerminalIO {

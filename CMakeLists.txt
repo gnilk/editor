@@ -76,18 +76,22 @@ include(cmake/CMakeDeps.cmake)
 # own CMake + tests; pulled in via add_subdirectory (never by listing sources).
 # Coexists with SDL (NOT the SDL2-XOR-SDL3 split) — default ON.
 # ---------------------------------------------------------------------------
+# The library (cell grid, encoder, input parser) is built everywhere - the headless screen draws into its grid
+# (GEDIT_HAVE_GANSI); the backend that runs the editor in a terminal (GEDIT_USE_ANSI) needs a POSIX terminal.
 if (WIN32)
-    # gansi talks to a POSIX terminal (termios); a Windows console backend is later (docs/windows-port.md)
+    # gansi's terminal I/O is termios; a Windows console backend is later (docs/windows-port.md)
     set(GEDIT_BUILD_ANSI OFF CACHE BOOL "Build the ANSI/TTY (gansi) backend" FORCE)
+    set(GANSI_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 else()
     option(GEDIT_BUILD_ANSI "Build the ANSI/TTY (gansi) backend" ON)
 endif()
+# The editor build does not need the gansi test shared lib as part of `all`;
+# it builds on demand (target gansitests). Keep it configured though, so trun
+# can find libgansitests next to libutests in the build tree.
+add_subdirectory(src/ext/gansi)
+list(APPEND extlibs gansi)
+add_definitions(-DGEDIT_HAVE_GANSI)
 if (GEDIT_BUILD_ANSI)
-    # The editor build does not need the gansi test shared lib as part of `all`;
-    # it builds on demand (target gansitests). Keep it configured though, so trun
-    # can find libgansitests next to libutests in the build tree.
-    add_subdirectory(src/ext/gansi)
-    list(APPEND extlibs gansi)
     add_definitions(-DGEDIT_USE_ANSI)
 endif()
 

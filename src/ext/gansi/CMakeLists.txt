@@ -38,8 +38,11 @@ list(APPEND gansi_src
     src/Caps.cpp
     src/Capabilities.cpp
     src/Terminal.cpp
-    src/platform/PosixTerminalIO.cpp
 )
+# The POSIX terminal (termios) - not on Windows, which has no console backend yet
+if (NOT WIN32)
+    list(APPEND gansi_src src/platform/PosixTerminalIO.cpp)
+endif()
 
 add_library(gansi STATIC ${gansi_src})
 target_include_directories(gansi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

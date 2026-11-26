@@ -20,13 +20,18 @@ cmake --build --preset debug
 cmake --build --preset utests
 ```
 
-- [ ] **It compiles and links.** New files since the last run: `src/Core/Agent/`, `AgentAsk`, `PanelHost`, `PanelLayout`,
+- [x] **It compiles and links.** (11-26, `fcea88af`: one warning, `-Wshadow` `tabs` in `PanelView.cpp:18`.) New files since the last run: `src/Core/Agent/`, `AgentAsk`, `PanelHost`, `PanelLayout`,
   `StructureDump`; the SDL2 font and screen code and `Shell.cpp` changed. A missing `#include` is the likely error (GCC's
   library pulls in less than clang's).
-- [ ] **Unit tests:** `cd cmake-build-debug && trun ./libutests.so` - 0 failed. The Mac has 1078; the number can differ a little.
-- [ ] **Terminal library:** `cmake --build cmake-build-debug --target gvttests && cd cmake-build-debug && trun ./libgvttests.so`
-- [ ] **App checks**, from the repo root, with the desktop unlocked (one check opens a window):
+- [x] **Unit tests:** `cd cmake-build-debug && trun ./libutests.so` - 0 failed. The Mac has 1078; the number can differ a little.
+  (11-26: 1078 run, 0 failed, 8.4 s.)
+- [x] **Terminal library:** `cmake --build cmake-build-debug --target gvttests && cd cmake-build-debug && trun ./libgvttests.so`
+  (11-26: 70 run, 0 failed.)
+- [x] **App checks**, from the repo root, with the desktop unlocked (one check opens a window):
   `python3 scripts/handtests/checks.py --exe cmake-build-debug/goatedit`
+  (11-26: 40 pass, 0 fail, 1 skipped - `real_agent_ask`.)
+  - **Over SSH:** `DISPLAY=:0 XAUTHORITY=~/.Xauthority XDG_SESSION_TYPE=x11` first. An SSH login is `XDG_SESSION_TYPE=tty`, which
+    goatedit rightly reads as a terminal, so `desktop_window` fails without it.
   - The Mac: 37 pass, 0 fail, 4 skipped. Three of those four are for Linux and should run here: `install_stale`,
     `sdl_no_display`, `desktop_window` (needs `xdotool`). `real_agent_ask` stays skipped - it costs tokens.
   - It takes around ten minutes. No check talks to a real agent.
@@ -124,7 +129,7 @@ Please keep these, they are enough to work from later:
 |---|---|
 | A failed app check | the whole output: `python3 scripts/handtests/checks.py --exe cmake-build-debug/goatedit <check> \| tee check.txt` |
 | A failed unit test | `trun --sequential -m <module> -t <case> ./libutests.so` |
-| A crash | `coredumpctl list goatedit`, then `coredumpctl info <pid>` |
+| A crash | `coredumpctl list goatedit`, then `coredumpctl info <pid>` (needs `sudo apt install systemd-coredump` - without it apport ignores a self-built goatedit) |
 | A hang | don't kill it first: `gdb -p <pid> -batch -ex "thread apply all bt" > hang.txt` |
 | The editor's log | `~/.local/state/goatedit/goatedit.log` |
 | Heap corruption suspected | `cmake --preset asan && cmake --build --preset asan`, run `cmake-build-asan/goatedit` |

@@ -37,6 +37,9 @@
 #include "Core/UI/Views/RootView.h"
 #include "Core/Editor/Views/WorkspaceView.h"
 #include "Core/Editor/Views/PanelView.h"
+#include "Core/Agent/AgentIntegrations.h"
+#include "Core/Agent/NoAgent.h"
+#include "Core/Index/StructureDump.h"
 
 
 // SDL3 backend
@@ -318,6 +321,7 @@ bool Editor::Initialize(int argc, const char **argv) {
         Editor::Instance().SaveSession();
     });
 
+    ConfigureAgent();
     ConfigureGlobalAPIObjects();
 
     // create a document if cmd-line didn't specify any
@@ -436,6 +440,12 @@ void Editor::ParseArguments(int argc, const char **argv) {
                 if (i + 1 < argc) {
                     importThemeName = argv[++i];
                 }
+            } else if (cmdSwitch == "dump") {
+                // Absolute now, like the file args - Initialize may move cwd to $HOME
+                if (i + 1 < argc) {
+                    std::error_code ec;
+                    dumpPath = std::filesystem::absolute(std::filesystem::path(argv[++i]), ec).lexically_normal();
+                }
             } else if (cmdSwitch == "force") {
                 isImportThemeForced = true;
             } else if (cmdSwitch == "help") {
@@ -468,6 +478,7 @@ void Editor::PrintHelpToConsole() {
     printf("  --cwd <dir>, set the working directory (project root) before resolving file arguments\n");
     printf("  --import-theme <file> [--name <name>] [--force], convert a VS Code theme (.json) or Sublime color scheme\n");
     printf("      (.sublime-color-scheme) into <name>.theme.yml + <name>.colors.json in themes/ next to the user config, then quit\n");
+    printf("  --dump <file-or-folder>, print the C/C++ structure (symbols + edges) of the files, then quit\n");
 }
 
 
@@ -481,6 +492,8 @@ void Editor::Close() {
     if (indexer != nullptr) {
         indexer->Stop();
     }
+    // Their threads post to the runloop and wake the screen - not left to the statics' destruction, after both are gone
+    workspace->StopMonitors();
     // Capture + persist the session while the documents are still open (clean-exit save).
     SaveSession();
     for(auto &document : workspace->GetOpenDocuments()) {
@@ -533,9 +546,10 @@ static WorkspaceView *GetWorkspaceView() {
     return dynamic_cast<WorkspaceView *>(ref.get());
 }
 
-// Helper: the lower panel - terminals in tabs (docs/panel-tabs.md) - or nullptr (not yet built / no root view /
-// headless). Scrollback persistence (terminal-scrollback.md §8) is driven through it from SaveSession.
-static PanelView *GetPanelView() {
+// Helper: a panel - terminals in tabs (docs/panel-tabs.md) - by its top view name, or nullptr (not built / no root view
+// / headless / no right panel in this layout). Scrollback persistence (terminal-scrollback.md §8) is driven through it
+// from SaveSession.
+static PanelView *GetPanelView(const std::string &topViewName = glbTerminalView) {
     if (!RuntimeConfig::Instance().HasRootView()) {
         return nullptr;
     }
@@ -543,23 +557,46 @@ static PanelView *GetPanelView() {
     if (rootView == nullptr) {
         return nullptr;
     }
-    return dynamic_cast<PanelView *>(rootView->GetTopViewByName(glbTerminalView).get());
+    return dynamic_cast<PanelView *>(rootView->GetTopViewByName(topViewName).get());
+}
+
+// The panels there are: the right one first (an agent's tab lives there - promote looks there first), then the bottom
+static std::vector<PanelView *> GetPanelViews() {
+    std::vector<PanelView *> panels;
+    for (auto &name : {glbTerminalRightView, glbTerminalView}) {
+        if (auto *panelView = GetPanelView(name)) {
+            panels.push_back(panelView);
+        }
+    }
+    return panels;
 }
 
 bool Editor::ShowMessagesTab() {
-    auto *panelView = GetPanelView();
-    if ((panelView == nullptr) || !panelView->ShowMessages()) {
-        return false;
+    // The bottom panel's first - the build lives there
+    for (auto &name : {glbTerminalView, glbTerminalRightView}) {
+        auto *panelView = GetPanelView(name);
+        if ((panelView != nullptr) && panelView->ShowMessages()) {
+            ActionHelper::SwitchToNamedView(name);
+            TriggerUIRedraw();
+            return true;
+        }
     }
-    ActionHelper::SwitchToNamedView(glbTerminalView);
-    TriggerUIRedraw();
-    return true;
+    return false;
 }
 
 bool Editor::PromoteToTerminal(const std::u32string &text) {
-    // An agent's tab when one is the promote target (panel-tabs.md §7), else the shown terminal
-    auto *panelView = GetPanelView();
-    auto *terminalView = (panelView != nullptr) ? panelView->PromoteTarget() : nullptr;
+    // An agent's tab when one is the promote target (panel-tabs.md §7) - the right panel's first - else the bottom
+    // panel's shown terminal
+    TerminalView *terminalView = nullptr;
+    for (auto *panelView : GetPanelViews()) {
+        if ((terminalView = panelView->FindPromoteTarget()) != nullptr) {
+            break;
+        }
+    }
+    if (terminalView == nullptr) {
+        auto *panelView = GetPanelView();
+        terminalView = (panelView != nullptr) ? panelView->ActiveTerminal() : nullptr;
+    }
     if ((terminalView == nullptr) || text.empty()) {
         return false;
     }
@@ -568,6 +605,190 @@ bool Editor::PromoteToTerminal(const std::u32string &text) {
     terminalView->GetController().Promote(text, isSubmit);
     TriggerUIRedraw();
     return true;
+}
+
+std::string Editor::PanelToFocus() {
+    if (GetPanelView(glbTerminalRightView) == nullptr) {
+        return glbTerminalView;
+    }
+    auto *rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
+    auto current = (rootView != nullptr) ? rootView->GetTopViewName() : std::nullopt;
+    if (current == glbTerminalView) {
+        return glbTerminalRightView;
+    }
+    if (current == glbTerminalRightView) {
+        return glbTerminalView;
+    }
+    return lastFocusedPanel;
+}
+
+bool Editor::SetPanelLayout(const std::string &setting) {
+    if ((panelHost == nullptr) || !panelHost->SetLayoutSetting(setting)) {
+        return false;
+    }
+    TriggerUIRedraw();
+    return true;
+}
+
+std::string Editor::GetPanelLayout() {
+    if (panelHost == nullptr) {
+        return {};
+    }
+    auto now = (panelHost->Layout() == PanelLayout::kLayout::kLandscape) ? std::string("landscape") : std::string("portrait");
+    return (panelHost->LayoutSetting() == now) ? now : panelHost->LayoutSetting() + " (" + now + ")";
+}
+
+std::string Editor::MovePanelTab() {
+    if (panelHost == nullptr) {
+        return "No panels";
+    }
+    auto *rootView = RuntimeConfig::Instance().GetRootViewAs<RootView>();
+    auto focused = (rootView != nullptr) ? rootView->GetTopViewName().value_or("") : std::string();
+    // A dot-command typed in a panel's terminal runs with that panel focused; from quick mode, the panel used last
+    if ((focused != glbTerminalView) && (focused != glbTerminalRightView)) {
+        focused = lastFocusedPanel;
+    }
+    auto message = panelHost->MoveShownTab(focused);
+    TriggerUIRedraw();
+    return message;
+}
+
+void Editor::ConfigureAgent() {
+    auto name = Config::Instance()["main"].GetStr("ai_integration", NoAgent::NAME);
+    agent = AgentIntegrations::Create(name);
+    if (agent == nullptr) {
+        std::string names;
+        for (auto &known : AgentIntegrations::Names()) {
+            names += (names.empty() ? "" : ", ") + known;
+        }
+        Notice(fmt::format("main.ai_integration: no agent '{}' - using none (there are: {})", name, names));
+        agent = NoAgent::Create();
+    }
+    logger->Debug("Agent integration: %s", agent->Status().c_str());
+}
+
+std::vector<std::string> Editor::DescribeAgent() {
+    auto join = [](const std::vector<std::string> &words) {
+        std::string line;
+        for (auto &word : words) {
+            line += (line.empty() ? "" : " ") + word;
+        }
+        return line;
+    };
+    std::vector<std::string> lines;
+    lines.push_back("Agent: " + agent->Status());
+    if (agent->Name() == NoAgent::NAME) {
+        lines.push_back("Set 'main.ai_integration' in your user config to use one (none | claude): '.cfg set main.ai_integration claude'");
+        return lines;
+    }
+    auto root = GetProjectRootPath();
+    lines.push_back("Project:        " + root.string());
+    lines.push_back("Working agent:  " + join(agent->WorkingAgentCommand(root)));
+    lines.push_back("Question agent: " + join(agent->QuestionAgentCommand(root, "<session id>", agentAsk.Model())) + " (reads, writes only its answers)");
+    auto transcripts = agent->TranscriptDir(root);
+    if (transcripts.has_value()) {
+        std::error_code ec;
+        auto isThere = std::filesystem::is_directory(transcripts.value(), ec);
+        lines.push_back("Transcripts:    " + transcripts->string() + (isThere ? "" : " (none yet)"));
+    }
+    return lines;
+}
+
+std::string Editor::StartEditorAgent() {
+    return agentAsk.StartAgent();
+}
+
+std::vector<std::string> Editor::SetEditorAgentModel(const std::string &name) {
+    return agentAsk.SetModel(name);
+}
+
+std::vector<std::string> Editor::AskEditorAgent(const std::string &text) {
+    return agentAsk.Ask(text);
+}
+
+TerminalView *Editor::GetEditorAgentView() {
+    for (auto *panelView : GetPanelViews()) {
+        if (auto *running = panelView->EditorAgent()) {
+            return running;
+        }
+    }
+    return nullptr;
+}
+
+TerminalView *Editor::AddEditorAgentTab(const ConfigNode &settings, const std::string &banner, bool isShown) {
+    auto *bottom = GetPanelView(glbTerminalView);
+    if (bottom == nullptr) {
+        return nullptr;
+    }
+    auto *view = bottom->AddEditorAgent(settings, banner, isShown);
+    if (isShown) {
+        ActionHelper::SwitchToNamedView(glbTerminalView);
+    }
+    TriggerUIRedraw();
+    return view;
+}
+
+bool Editor::RemoveEditorAgentTab() {
+    bool wasShown = false;
+    for (auto *panelView : GetPanelViews()) {
+        wasShown = panelView->RemoveEditorAgent() || wasShown;
+    }
+    TriggerUIRedraw();
+    return wasShown;
+}
+
+void Editor::RaiseEditorAgentTab() {
+    for (auto *panelView : GetPanelViews()) {
+        if (auto idxTab = panelView->IndexOf(panelView->EditorAgent())) {
+            panelView->SetActiveTab(idxTab.value());
+        }
+    }
+    TriggerUIRedraw();
+}
+
+void Editor::ShowEditorAgentTab() {
+    for (auto *panelView : GetPanelViews()) {
+        if (auto *running = panelView->EditorAgent()) {
+            if (auto idxTab = panelView->IndexOf(running)) {
+                panelView->SetActiveTab(idxTab.value());
+            }
+            ActionHelper::SwitchToNamedView(panelView->TopViewName());
+            TriggerUIRedraw();
+            return;
+        }
+    }
+}
+
+void Editor::SetEditorAgentInfoLine(const std::u32string &line) {
+    for (auto *panelView : GetPanelViews()) {
+        if (auto *running = panelView->EditorAgent()) {
+            if (auto idxTab = panelView->IndexOf(running)) {
+                panelView->SetTabInfoLine(idxTab.value(), line);
+            }
+            TriggerUIRedraw();
+            return;
+        }
+    }
+}
+
+std::filesystem::path Editor::GetProjectRootPath() {
+    if (workspace != nullptr) {
+        for (auto &root : workspace->GetProjectRoots()) {
+            if (IsProjectRoot(root)) {
+                return pathutil::CanonicalPath(root->GetRootPath());
+            }
+        }
+    }
+    std::error_code ec;
+    return std::filesystem::current_path(ec);
+}
+
+void Editor::RegisterPanelOutputConsole() {
+    auto *panelView = GetPanelView();
+    auto *terminalView = (panelView != nullptr) ? panelView->ActiveTerminal() : nullptr;
+    if (terminalView != nullptr) {
+        terminalView->GetController().RegisterAsOutputConsole();
+    }
 }
 
 // Load the session once (data model only — documents). Layout is applied later by RestoreLayout, once
@@ -633,9 +854,8 @@ void Editor::SaveSession() {
         // Terminal scrollback (terminal-scrollback.md §8) - clean-exit only (SaveSession runs from
         // Close()). ToSession resets session.terminal and refills it (or leaves it empty when there's
         // nothing to persist / the feature is off), so a repeated save stays idempotent.
-        auto *panelView = GetPanelView();
-        if (panelView != nullptr) {
-            panelView->SaveTabs(session.terminal);
+        if (panelHost != nullptr) {
+            panelHost->SaveTabs(session.terminal);
         }
     }
     SessionManager::Instance().Save();
@@ -706,7 +926,7 @@ void Editor::HandleGlobalAction(const EditorAction &kpAction) {
             quickCommandController.Enter();
        } else if (kpAction.action == kAction::kActionSwitchToTerminal) {
             logger->Debug("Should switch to terminal view");
-            ActionHelper::SwitchToNamedView(glbTerminalView);
+            ActionHelper::SwitchToNamedView(PanelToFocus());
         } else if (kpAction.action == kAction::kActionSwitchToEditor) {
             logger->Debug("Should switch to editor view");
             ActionHelper::SwitchToNamedView(glbEditorView);
@@ -1056,7 +1276,7 @@ void Editor::ApplyTheme() {
         }
     }
     // Every tab's terminal, not only the shown one
-    if (auto *panelView = GetPanelView()) {
+    for (auto *panelView : GetPanelViews()) {
         for (auto *terminalView : panelView->Terminals()) {
             terminalView->GetController().RefreshThemeColors();
         }
@@ -1108,6 +1328,17 @@ bool Editor::ImportTheme() {
         fprintf(result.isOk ? stdout : stderr, "%s\n", line.c_str());
     }
     return result.isOk;
+}
+
+// '--dump': the structure of C/C++ files as text (StructureDump), to stdout
+bool Editor::DumpStructure() {
+    auto language = GetLanguageForExtension(".cpp");
+    if ((language == nullptr) || !std::filesystem::exists(dumpPath)) {
+        fprintf(stderr, "--dump: no such file or folder '%s'\n", dumpPath.c_str());
+        return false;
+    }
+    StructureDump::Print(stdout, dumpPath, language->Tokenizer());
+    return true;
 }
 
 // Configure global/static API objects..

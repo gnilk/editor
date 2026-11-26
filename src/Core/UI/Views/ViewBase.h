@@ -5,6 +5,7 @@
 #ifndef NCWIN_VIEWBASE_H
 #define NCWIN_VIEWBASE_H
 
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -180,12 +181,27 @@ namespace gedit {
             if (view->GetViewRect().IsEmpty()) {
                 view->SetViewRect(GetContentRect());
             }
+            // A view has one parent: moved here, it leaves the one it had (a layout switch re-parents a part of the tree)
+            if ((view->parentView != nullptr) && (view->parentView != this)) {
+                view->parentView->RemoveView(view);
+            }
+            if (std::find(subviews.begin(), subviews.end(), view) != subviews.end()) {
+                return;
+            }
             subviews.push_back(view);
             view->parentView = this;
             if (!view->IsInitialized()) {
                 view->Initialize();
             }
 
+        }
+
+        // Out of this view's tree - not deleted (a view is owned by whoever made it)
+        virtual void RemoveView(ViewBase *view) final {
+            std::erase(subviews, view);
+            if (view->parentView == this) {
+                view->parentView = nullptr;
+            }
         }
 
         virtual ViewBase *GetParentView() {

@@ -784,6 +784,20 @@ DLL_EXPORT int test_session_terminal_roundtrip(ITesting *t) {
     TR_ASSERT(t, (withTabs.terminal.tabs[2].view == "terminal") && (withTabs.terminal.tabs[2].config == "ai_agent"));
     TR_ASSERT(t, withTabs.terminal.tabs[1].view.empty() && withTabs.terminal.tabs[1].config.empty());
     TR_ASSERT(t, withTabs.terminal.activeTab == 2);
+    // No home (a session from before #77): the bottom panel's; no shown tab by id - the index then
+    TR_ASSERT(t, withTabs.terminal.tabs[2].home.empty());
+    TR_ASSERT(t, !withTabs.terminal.activeTabId.has_value() && !withTabs.terminal.activeTabIdRight.has_value());
+
+    // Two panels (hitlist #77): each tab's home, each panel's shown tab by id - "" is an id (the first tab's)
+    s.terminal.tabs[2].home = "right";
+    s.terminal.activeTabId = "";
+    s.terminal.activeTabIdRight = "3";
+    RootSession twoPanels;
+    TR_ASSERT(t, SessionSerializer::FromYaml(SessionSerializer::ToYaml(s), twoPanels));
+    TR_ASSERT(t, twoPanels.terminal.tabs[2].home == "right");
+    TR_ASSERT(t, twoPanels.terminal.tabs[0].home.empty());
+    TR_ASSERT(t, twoPanels.terminal.activeTabId == std::optional<std::string>(""));
+    TR_ASSERT(t, twoPanels.terminal.activeTabIdRight == std::optional<std::string>("3"));
     return kTR_Pass;
 }
 

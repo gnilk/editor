@@ -45,6 +45,7 @@ DLL_EXPORT int test_workspace_scannode_keepsopen(ITesting *t);
 DLL_EXPORT int test_workspace_reconcile(ITesting *t);
 DLL_EXPORT int test_workspace_monitorflush(ITesting *t);
 DLL_EXPORT int test_workspace_monitorlifetime(ITesting *t);
+DLL_EXPORT int test_workspace_monitorstop(ITesting *t);
 DLL_EXPORT int test_workspace_tabnumber(ITesting *t);
 DLL_EXPORT int test_workspace_folderafterfile(ITesting *t);
 }
@@ -949,6 +950,35 @@ DLL_EXPORT int test_workspace_monitorflush(ITesting *t) {
     glue.RunPosted();
     TR_ASSERT(t, nNotify == 4);
     TR_ASSERT(t, rootNode->FindNodeWithPath(root / "src") == nullptr);
+
+    fs::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// At quit the monitors are stopped with the roots still there: an event from then on posts nothing
+DLL_EXPORT int test_workspace_monitorstop(ITesting *t) {
+    namespace fs = std::filesystem;
+    auto root = pathutil::CanonicalPath(fs::temp_directory_path() / "goat_ws_monstop");
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root);
+
+    Workspace workspace;
+    FakeMonitorGlue glue;
+    glue.Wire(workspace);
+    TR_ASSERT(t, workspace.OpenFolder(root.string()));
+    auto monitor = glue.monitor;
+    TR_ASSERT(t, (monitor != nullptr) && monitor->IsRunning());
+
+    workspace.StopMonitors();
+    TR_ASSERT(t, !monitor->IsRunning());
+    { std::ofstream(root / "late.txt") << "x\n"; }
+    monitor->Event(root / "late.txt");
+    monitor->LostEvents();
+    TR_ASSERT(t, glue.posted.empty());
+    TR_ASSERT(t, !workspace.GetProjectRoots().empty());
+    // Twice is harmless - the roots' destruction stops them again
+    workspace.StopMonitors();
 
     fs::remove_all(root, ec);
     return kTR_Pass;

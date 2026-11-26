@@ -1050,3 +1050,89 @@ extern "C" int test_layout_messages_view(ITesting *t) {
     std::filesystem::remove_all(dir);
     return kTR_Pass;
 }
+
+// Landscape (hitlist #77, usability-round.md §19): HSplit[ upper = VSplit[ VSplit[ workspace | editor ] | right ],
+// lower = bottom ]. The three columns fill the width, the right panel spans the whole upper part; the width keys in the
+// right panel move ITS divide (the nearest vertical splitter), clamped; the height keys still reach the bottom panel's.
+extern "C" int test_layout_right_panel(ITesting *t) {
+    RootView rootView;
+    HSplitView hSplitView;
+    rootView.AddView(&hSplitView);
+
+    VSplitView panels;
+    VSplitView upper;
+    ViewBase workspace;
+    ViewBase editor;
+    ViewBase right;
+    ViewBase bottom;
+    upper.SetInitialSplitterPos(24);
+    upper.SetLeft(&workspace);
+    upper.SetRight(&editor);
+    panels.SetInitialSplitterRatio(0.6f);
+    panels.SetLeft(&upper);
+    panels.SetRight(&right);
+    hSplitView.SetUpper(&panels);
+    hSplitView.SetLower(&bottom);
+    rootView.Initialize();
+
+    int width = panels.GetViewRect().Width();
+    TR_ASSERT(t, width > 0);
+    TR_ASSERT(t, workspace.GetWidth() + editor.GetWidth() + right.GetWidth() == width);
+    TR_ASSERT(t, right.GetViewRect().Height() == upper.GetViewRect().Height());
+    TR_ASSERT(t, right.GetViewRect().TopLeft().y == workspace.GetViewRect().TopLeft().y);
+    // The first split by its ratio
+    TR_ASSERT(t, panels.GetSplitterPos() == (int)((float)width * 0.6f));
+    TR_ASSERT(t, workspace.GetWidth() == 24);
+
+    // Widen the right panel from inside it - its divide moves, the workspace|editor divide doesn't
+    right.SetActive(true);
+    auto widen = MakeAction(kUIAction::kUIActionIncreaseViewWidth);
+    int before = right.GetWidth();
+    right.OnAction(widen);
+    rootView.Initialize();
+    TR_ASSERT(t, right.GetWidth() == before + 1);
+    TR_ASSERT(t, workspace.GetWidth() == 24);
+    for (int i = 0; i < width + 50; i++) {
+        right.OnAction(widen);
+    }
+    rootView.Initialize();
+    TR_ASSERT(t, (panels.GetSplitterPos() > 0) && (panels.GetSplitterPos() < width));
+    TR_ASSERT(t, right.GetWidth() > 0 && upper.GetViewRect().Width() > 0);
+
+    // Height from the right panel goes up to the bottom panel's splitter
+    int splitBefore = hSplitView.GetSplitterPos();
+    right.OnAction(MakeAction(kUIAction::kUIActionDecreaseViewHeight));
+    rootView.Initialize();
+    TR_ASSERT(t, hSplitView.GetSplitterPos() != splitBefore);
+    TR_ASSERT(t, right.GetViewRect().Height() == upper.GetViewRect().Height());
+    return kTR_Pass;
+}
+
+// A tab's info line (the Editor Agent's banner): a row of its own below the tab row while that tab is shown - its view
+// starts below it; another tab shown gets the row back; one tab alone: the line, no tab row
+extern "C" int test_layout_tabs_infoline(ITesting *t) {
+    RootView rootView;
+    TabbedView tabbed;
+    rootView.AddView(&tabbed);
+    auto &a = AddTestTab(tabbed, U'a', U"a");
+    rootView.Initialize();
+    auto content = tabbed.GetContentRect();
+
+    tabbed.SetTabInfoLine(0, U"who and why");
+    TR_ASSERT(t, tabbed.TabInfoLine(0) == U"who and why");
+    TR_ASSERT(t, a.GetViewRect().TopLeft().y == content.TopLeft().y + 1);
+    TR_ASSERT(t, a.GetViewRect().Height() == content.Height() - 1);
+
+    auto &b = AddTestTab(tabbed, U'b', U"b");
+    TR_ASSERT(t, a.GetViewRect().TopLeft().y == content.TopLeft().y + 2);
+    TR_ASSERT(t, a.GetViewRect().Height() == content.Height() - 2);
+    tabbed.SetActiveTab(1);
+    TR_ASSERT(t, b.GetViewRect().TopLeft().y == content.TopLeft().y + 1);
+    TR_ASSERT(t, b.GetViewRect().Height() == content.Height() - 1);
+
+    // Cleared: the row goes
+    tabbed.SetActiveTab(0);
+    tabbed.SetTabInfoLine(0, U"");
+    TR_ASSERT(t, a.GetViewRect().TopLeft().y == content.TopLeft().y + 1);
+    return kTR_Pass;
+}

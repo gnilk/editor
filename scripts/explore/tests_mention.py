@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # "No test mentions it": for the types and functions a type-diff (typediff.py's text) added, which names appear in no
 # test source. A mention is not coverage - a name in a test can be a comment - but no mention is a strong hint.
-# Usage: typediff.py ... | tests_mention.py [--tests utests]
+# Usage: typediff.py ... | tests_mention.py [--tests utests]   (typediff.py ships now: Assets/Resources/Tools/)
 import argparse, collections, os, re, sys
 
 def added(lines, title):

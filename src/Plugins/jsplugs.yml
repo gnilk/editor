@@ -71,6 +71,36 @@ commands:
     script: Scripts/copyoutput.js
 
   -
+    name: layout
+    short: layout
+    description: "Layout: [portrait | landscape | auto] - where the panels go, for this run (main.layout is the start); none: the layout now"
+    script: Scripts/layout.js
+    arguments:
+      - string, portrait | landscape | auto
+  -
+    name: agent
+    short: agent
+    description: "Agent: the AI agent main.ai_integration picks (none | claude), whether it is found, what it would run; start - the Editor Agent's tab; model [name] - its model, for this session"
+    script: Scripts/agent.js
+    arguments:
+      - string, start | model (optional)
+      - string, model name (optional)
+  -
+    name: ask
+    short: ask
+    description: "Ask: a question to the Editor Agent - shown for your OK first; kept with its answer in .goatedit/agent_qa/, the answer opened"
+    script: Scripts/ask.js
+    arguments:
+      - string, question
+  -
+    name: panel
+    short: panel
+    description: "Panel: move - the focused panel's shown tab to the other panel (its home: kept across a restart)"
+    script: Scripts/panel.js
+    arguments:
+      - string, action
+
+  -
     name: outputtobuffer
     short: ob
     description: Open the last terminal command's output in a new buffer

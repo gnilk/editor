@@ -24,6 +24,8 @@ DLL_EXPORT int test_terminalcontroller_commitline_marks_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_viewport_scroll_stops_at_newest_page(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_commitline_empty_marks_nothing(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_dotcommand_keeps_output(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_not_output_console(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_settled(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_dotcommand_output_below(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_osc133_output(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_osc133_commit_stands_down(ITesting *t);
@@ -53,6 +55,7 @@ DLL_EXPORT int test_terminalcontroller_title(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_build_fastend(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_build_quietend(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_ctrl_to_shell(ITesting *t);
+DLL_EXPORT int test_terminalcontroller_ctrl_d_shell_owned(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_settings(ITesting *t);
 DLL_EXPORT int test_terminalcontroller_panel_configured(ITesting *t);
 }
@@ -1170,6 +1173,47 @@ DLL_EXPORT int test_terminalcontroller_ctrl_to_shell(ITesting *t) {
     return kTR_Pass;
 }
 
+// Once a Ctrl chord has handed the line to readline, Ctrl+D on an empty line must still not reach it - it ends the shell
+// and the panel is dead. With text on the line it is readline's (delete), and a program's own always.
+DLL_EXPORT int test_terminalcontroller_ctrl_d_shell_owned(ITesting *t) {
+    TerminalController c;
+    c.Resize(40, 10);
+    std::string sent;
+    bool isForegroundJob = false;
+    c.SetPtyWriter([&sent](std::string_view bytes) { sent += bytes; });
+    c.SetForegroundJobProbe([&isForegroundJob]() { return isForegroundJob; });
+    FeedPty(c, "$ ");
+
+    Cursor cursor;
+    size_t line = 0;
+    auto ctrlD = TextKey(U'd', Keyboard::kMod_LeftCtrl);
+    TR_ASSERT(t, c.HandleKeyPress(cursor, line, TextKey(U'u', Keyboard::kMod_LeftCtrl)));
+    TR_ASSERT(t, c.DoesShellOwnLineEditing());
+
+    // Empty: held back, and readline keeps the line
+    sent.clear();
+    TR_ASSERT(t, c.HandleKeyPress(cursor, line, ctrlD));
+    TR_ASSERT(t, sent.empty());
+    TR_ASSERT(t, c.DoesShellOwnLineEditing());
+
+    // Text on it: readline's
+    FeedPty(c, "abc");
+    TR_ASSERT(t, c.HandleKeyPress(cursor, line, ctrlD));
+    TR_ASSERT(t, sent == "\x04");
+
+    // Erased again
+    FeedPty(c, "\r$ \x1b[K");
+    sent.clear();
+    TR_ASSERT(t, c.HandleKeyPress(cursor, line, ctrlD));
+    TR_ASSERT(t, sent.empty());
+
+    // A program reading its input gets it
+    isForegroundJob = true;
+    TR_ASSERT(t, c.HandleKeyPress(cursor, line, ctrlD));
+    TR_ASSERT(t, sent == "\x04");
+    return kTR_Pass;
+}
+
 // #53 step 4 b: the terminal uses the settings it is handed (a resolved section), not the global 'terminal' section -
 // an agent's tab can keep less scrollback than the shell's
 DLL_EXPORT int test_terminalcontroller_settings(ITesting *t) {
@@ -1226,3 +1270,48 @@ DLL_EXPORT int test_terminalcontroller_panel_configured(ITesting *t) {
     return kTR_Pass;
 }
 
+
+// 'output_console: no' (the Editor Agent's tab): registering does nothing - dot-command output never goes into an agent
+DLL_EXPORT int test_terminalcontroller_not_output_console(ITesting *t) {
+    auto *prevConsole = RuntimeConfig::Instance().OutputConsole();
+    TerminalController agent;
+    auto settings = ConfigNode::FromString("output_console: no\n");
+    TR_ASSERT(t, settings.has_value());
+    agent.SetSettings(settings.value());
+    agent.RegisterAsOutputConsole();
+    TR_ASSERT(t, RuntimeConfig::Instance().OutputConsole() == prevConsole);
+
+    TerminalController shell;
+    shell.RegisterAsOutputConsole();
+    TR_ASSERT(t, RuntimeConfig::Instance().OutputConsole() != prevConsole);
+    RuntimeConfig::Instance().SetOutputConsole(prevConsole);
+    return kTR_Pass;
+}
+
+// An app has settled (agent-integration.md §6.3) when it reads a paste (?2004) and the pty has been quiet for the time
+// asked - never before it turned bracketed paste on; new output starts the quiet time over. Focus is remembered.
+DLL_EXPORT int test_terminalcontroller_settled(ITesting *t) {
+    using namespace std::chrono_literals;
+    TerminalController c;
+    c.Resize(40, 10);
+    std::string sent;
+    CaptureInput(c, sent, true);
+    FeedPty(c, "starting...");
+    TR_ASSERT(t, !c.IsSettled(0ms));
+    FeedPty(c, "\x1b[?2004h> ");
+    TR_ASSERT(t, c.IsSettled(0ms));
+    TR_ASSERT(t, !c.IsSettled(10s));
+    std::this_thread::sleep_for(60ms);
+    TR_ASSERT(t, c.IsSettled(50ms));
+    FeedPty(c, "x");
+    TR_ASSERT(t, !c.IsSettled(50ms));
+    FeedPty(c, "\x1b[?2004l");
+    TR_ASSERT(t, !c.IsSettled(0ms));
+
+    TR_ASSERT(t, !c.HasFocus());
+    c.SetFocus(true);
+    TR_ASSERT(t, c.HasFocus());
+    c.SetFocus(false);
+    TR_ASSERT(t, !c.HasFocus());
+    return kTR_Pass;
+}

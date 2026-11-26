@@ -16,6 +16,9 @@ namespace gedit {
     public:
         // The directory holding the running executable (symlinks resolved), empty if it can't be determined
         static std::filesystem::path ExecutableDir();
+        // The running executable itself (symlinks resolved), empty if it can't be determined - what a tool runs to get
+        // the same editor ('goatedit --dump')
+        static std::filesystem::path ExecutablePath();
 
         // System asset directories in priority order, existence not checked
         static std::vector<std::filesystem::path> SystemAssetCandidates(const std::filesystem::path &exeDir,

@@ -13,6 +13,7 @@ session and shell history are never read or written) with the work folder inside
 below $HOME). Every check prints what it saw, so a failure can be read without re-running it.
 """
 import argparse
+import json
 import platform
 import re
 import shutil
@@ -72,6 +73,13 @@ def sandbox(name):
     work = os.path.join(sb, 'home', 'work')
     os.makedirs(work)
     return sb, work
+
+
+def trust_claude(sb, folder):
+    """Claude Code's own record that it was trusted in 'folder' (the sandbox HOME's ~/.claude.json) - the editor won't
+    start the Editor Agent anywhere else: its trust dialog would be answered by the editor's Enter"""
+    write(os.path.join(sb, 'home', '.claude.json'),
+          '{"projects": {"%s": {"hasTrustDialogAccepted": true}}}\n' % os.path.realpath(folder))
 
 
 def write(path, data, mode='w', encoding='utf-8'):
@@ -372,6 +380,720 @@ def agent_tab(n):
     sessions = [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(work, '.goatedit')) for f in fs if f.startswith('session')]
     text = ''.join(open(f).read() for f in sessions)
     n('config: agent_test' in text, f"the session keeps the tab's section ({sessions})")
+
+
+@check('#77 Landscape: the right panel (panel_right) beside the editor, Alt+T between the panels, homes kept in portrait')
+def right_panel(n):
+    sb, work = sandbox('right_panel')
+    write(os.path.join(work, 'p.sh'), 'echo promoted-$((40+2))\n')
+    config = ('main:\n'
+              '  layout: {layout}\n'
+              'panel:\n'
+              '  tabs:\n'
+              '    - name: Shell\n'
+              'panel_right:\n'
+              '  tabs:\n'
+              '    - name: Agent\n'
+              '      config: agent_test\n'
+              'agent_test:\n'
+              '  inherit: terminal\n'
+              '  promote_target: yes\n')
+    user_config(sb, config.format(layout='landscape'))
+
+    def status_row(g):
+        return next((r for r in range(g.rows) if 'GoatEdit v' in g.screen.text(r)), -1)
+
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        # From the tree: the bottom panel (the one focused last - none yet)
+        g.send(alt('t'), 0.5)
+        g.type('echo bottom-$((2*3))', wait=0.2)
+        g.send(ENTER, 0.8)
+        g.send(alt('t'), 0.5)
+        g.type('echo right-$((4*4))', wait=0.2)
+        g.send(ENTER, 0.8)
+        n(g.wait_text('bottom-6', 2) and g.wait_text('right-16', 2), 'both panels shown at once, Alt+T went from one to the other')
+        bottom, right, row = g.screen.find('bottom-6'), g.screen.find('right-16'), status_row(g)
+        n(right is not None and right[1] >= g.cols // 2 and right[0] < row,
+          f'the right panel is on the right, above the status line (at {right}, status row {row})')
+        n(bottom is not None and bottom[0] > row and bottom[1] < 10, f'the bottom panel below it (at {bottom})')
+        # Out to the editor and back: Alt+T goes to the panel focused last (the right one)
+        g.send(alt('e'), 0.4)
+        g.send(alt('t'), 0.5)
+        g.type('echo again-$((5*5))', wait=0.2)
+        g.send(ENTER, 0.8)
+        again = g.screen.find('again-25')
+        n(again is not None and again[1] >= g.cols // 2, f'Alt+T from the editor: the panel focused last ({again})')
+        # Promote: the right panel's target
+        g.send(alt('t'), 0.5)
+        g.type('.o p.sh', wait=0.2)
+        g.send(ENTER, 1.0)
+        g.send(alt('e'), 0.4)
+        g.send(ctrl('enter'), 0.3)
+        n(g.wait_text('promoted-42', 4) and g.screen.find('promoted-42')[1] >= g.cols // 2,
+          'Cmd/Ctrl+Enter from the editor: runs in the right panel (promote_target)')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+    sessions = [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(work, '.goatedit')) for f in fs if f.startswith('session')]
+    text = ''.join(open(f).read() for f in sessions)
+    n('home: right' in text and 'split.panel_right' in text, f'the session keeps the tab\'s home and the right divide ({sessions})')
+
+    # Portrait: the same session - the Agent tab joins the bottom panel, still homed right
+    user_config(sb, config.format(layout='portrait'))
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        n(g.wait_for(lambda g: any('Shell | Agent' in l for l in g.screen.lines()), 3), 'portrait: both tabs in the bottom panel')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+    text = ''.join(open(f).read() for f in sessions)
+    n('home: right' in text, 'still homed right after a portrait run')
+
+    # Landscape again: back on the right
+    user_config(sb, config.format(layout='landscape'))
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        n(g.wait_for(lambda g: not any('Shell | Agent' in l for l in g.screen.lines()), 3), 'landscape again: the Agent tab is back on the right')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
+@check('#77 Layout while running: .layout portrait / landscape keeps the shells, .panel move')
+def right_panel_live(n):
+    sb, work = sandbox('right_panel_live')
+    user_config(sb, 'main:\n'
+                    '  layout: landscape\n'
+                    'panel:\n'
+                    '  tabs:\n'
+                    '    - name: Shell\n'
+                    'panel_right:\n'
+                    '  tabs:\n'
+                    '    - name: Agent\n')
+
+    def tab_row(g):
+        return [l for l in g.screen.lines() if 'Shell | Agent' in l]
+
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.4)
+        g.send(alt('t'), 0.4)
+        g.type('echo kept-$((7*6))', wait=0.2)
+        g.send(ENTER, 0.8)
+        kept = g.screen.find('kept-42') if g.wait_text('kept-42', 2) else None
+        n(kept is not None and kept[1] >= g.cols // 2, f'typed in the right panel ({kept})')
+        g.type('.layout portrait', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_for(lambda g: tab_row(g), 3), f'.layout portrait: the Agent tab joins the bottom panel ({tab_row(g)})')
+        g.send(alt('t'), 0.4)
+        g.send(alt('2'), 0.8)
+        n(g.wait_text('kept-42', 2), 'its shell lived on - the output is still there')
+        g.type('.layout landscape', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_for(lambda g: not tab_row(g), 3), '.layout landscape: back on the right')
+        kept = g.screen.find('kept-42')
+        n(kept is not None and kept[1] >= g.cols // 2, f'with its output ({kept})')
+        # The bottom panel was used last (.layout was typed there): Alt+T goes there, again to the right
+        g.send(alt('e'), 0.3)
+        g.send(alt('t'), 0.4)
+        g.send(alt('t'), 0.4)
+        g.type('.panel move', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_for(lambda g: tab_row(g), 3), '.panel move from the right panel: the tab moves to the bottom, the right panel goes')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+    sessions = [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(work, '.goatedit')) for f in fs if f.startswith('session')]
+    text = ''.join(open(f).read() for f in sessions)
+    n('home: right' not in text and 'Agent' in text, 'the move is kept: the Agent tab is homed at the bottom now')
+
+
+@check('#77 main.layout: auto - the window\'s shape decides, while it is resized')
+def right_panel_auto(n):
+    sb, work = sandbox('right_panel_auto')
+    user_config(sb, 'main:\n'
+                    '  layout: auto\n'
+                    'panel_right:\n'
+                    '  tabs:\n'
+                    '    - name: Agent\n')
+
+    def tab_row(g):
+        return [l for l in g.screen.lines() if 'Shell | Agent' in l]
+
+    # 160x40 cells is 2:1 - landscape
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False, rows=40, cols=160)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.4)
+        g.send(alt('t'), 0.4)
+        g.type('echo auto-$((6*7))', wait=0.2)
+        g.send(ENTER, 0.8)
+        found = g.screen.find('auto-42') if g.wait_text('auto-42', 2) else None
+        n(found is not None and found[1] >= g.cols // 2, f'a wide window starts landscape ({found})')
+        # 90x45 is 1:1 - portrait
+        g.resize(45, 90, 1.5)
+        n(g.wait_for(lambda g: tab_row(g), 3), f'made narrow: portrait, the Agent tab in the bottom panel ({tab_row(g)})')
+        g.resize(40, 160, 1.5)
+        n(g.wait_for(lambda g: not tab_row(g) and 'GoatEdit v' in g.status_line(), 3), 'wide again: landscape')
+        found = g.screen.find('auto-42')
+        n(found is not None and found[1] >= g.cols // 2, f'the agent\'s shell lived through it ({found})')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
+@check('#78 Agent integration: main.ai_integration none (default) / claude, never from a project config; .agent')
+def agent_integration(n):
+    sb, work = sandbox('agent_integration')
+
+    def agent_lines(g):
+        g.send(alt('t'), 0.4)
+        g.type('.agent', wait=0.2)
+        g.send(ENTER, 1.0)
+        g.wait_text('Agent: ', 2)
+        return '\n'.join(g.screen.lines())
+
+    # Default: none - and a project config naming one is not used
+    write(os.path.join(work, '.goatedit', 'config.yml'), 'main:\n  ai_integration: claude\n')
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        text = agent_lines(g)
+        n('Agent: none' in text, 'default (and a project config saying claude): none')
+        n('Question agent' not in text, 'none: nothing that would be started')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+    # The user config picks claude: the commands for this project, nothing started
+    user_config(sb, 'main:\n  ai_integration: claude\n')
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        text = agent_lines(g)
+        n('Agent: claude' in text, 'user config: claude')
+        n('claude --permission-mode dontAsk' in text, 'the question agent is read-only (dontAsk, answers only)')
+        n('-work' in text and 'projects' in text, "its transcript folder, named after the project's path")
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+    # A name there is none of: a start-up notice, none
+    user_config(sb, 'main:\n  ai_integration: hal9000\n')
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False)
+    try:
+        g.ready()
+        n(g.wait_text("no agent 'hal9000'", 3), 'an unknown name: a notice in the terminal')
+        n('Agent: none' in agent_lines(g), 'and none')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
+@check('#78 Editor Agent: .agent start - its own tab at the bottom, fixed name, banner, not saved')
+def editor_agent(n):
+    sb, work = sandbox('editor_agent')
+    args_file = os.path.join(sb, 'fake-claude-args')
+    # A fake 'claude' - first on a PATH that can't reach the real one (agent calls cost money); sh, so no login
+    # profile reorders the PATH. It goes full screen and clears it, as the real one does
+    fake_bin = os.path.join(sb, 'bin')
+    write(os.path.join(fake_bin, 'claude'), '#!/bin/sh\nprintf \'\\033[?1049h\\033[2J\\033[H\'\n'
+                                            f'echo "$*" >> \'{args_file}\'\n'
+                                            'echo "fake-claude: $*"\nexec cat\n')
+    os.chmod(os.path.join(fake_bin, 'claude'), 0o755)
+    env = {'PATH': fake_bin + ':/usr/bin:/bin'}
+    user_config(sb, "main:\n  ai_integration: claude\nterminal:\n  shell: /bin/sh\n")
+    trust_claude(sb, work)
+
+    def tab_row(g):
+        return next((l for l in g.screen.lines() if 'Editor Agent' in l and '|' in l), '')
+
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False, env=env)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.4)
+        g.type('.agent start', wait=0.2)
+        g.send(ENTER, 1.5)
+        n(g.wait_text('fake-claude: --permission-mode dontAsk', 4), 'the agent runs read-only (dontAsk), in its own tab')
+        n(g.wait_text("GoatEdit's own agent", 2), 'the banner says whose it is - above the agent, which cleared its screen')
+        n('Shell | Editor Agent' in tab_row(g), f'a tab named Editor Agent next to the shell ({tab_row(g)!r})')
+        # Back to the shell tab: the editor's answer landed there, not in the agent's input
+        g.send(alt('1'), 0.5)
+        n(g.wait_text('Editor Agent started', 2), "'.agent start' answered in the shell, not in the agent's tab")
+        g.type('.agent start', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text('fake-claude', 2), 'a second .agent start shows the running one')
+        n(tab_row(g).count('Editor Agent') == 1, 'still one Editor Agent tab')
+        g.send(alt('1'), 0.5)
+        n(g.wait_text('runs already', 2), '... and says so')
+
+        # '.agent model': for this session - the running one is started over, in a new conversation
+        def agent_args():
+            return open(args_file).read().splitlines() if os.path.exists(args_file) else []
+        n(len(agent_args()) == 1 and '--model' not in agent_args()[0], f"first the agent's own model ({agent_args()})")
+        g.type('.agent model', wait=0.2)
+        g.send(ENTER, 0.8)
+        n(g.wait_text("Editor Agent's model: the agent's default", 2), '.agent model: which it is')
+        g.type('.agent model --print', wait=0.2)
+        g.send(ENTER, 0.8)
+        n(g.wait_text("is not a model's name", 2), 'an option is not a model')
+        g.type('.agent model sonnet', wait=0.2)
+        g.send(ENTER, 0.5)
+        n(g.wait_for(lambda g: len(agent_args()) == 2, 6), 'started over')
+        args = agent_args()
+        session = lambda line: line.split('--session-id ')[1].split()[0]
+        n(args[-1].endswith('--model sonnet'), f'... with --model sonnet ({args[-1]!r})')
+        n(session(args[0]) != session(args[-1]), '... in a new conversation')
+        n(tab_row(g).count('Editor Agent') == 1, f'still one Editor Agent tab ({tab_row(g)!r})')
+        n(g.wait_text('Editor Agent\'s model: sonnet (this session) - started over', 2), '... said in the shell, which keeps the focus')
+        g.type('.agent model sonnet', wait=0.2)
+        g.send(ENTER, 0.8)
+        n(g.wait_text('it runs with it already', 2) and len(agent_args()) == 2, 'the same again: nothing happens')
+        g.type('.agent model default', wait=0.2)
+        g.send(ENTER, 0.5)
+        n(g.wait_for(lambda g: len(agent_args()) == 3, 6) and '--model' not in agent_args()[-1], f'default: without it again ({agent_args()[-1]!r})')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+    sessions = [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(work, '.goatedit')) for f in fs if f.startswith('session')]
+    text = ''.join(open(f).read() for f in sessions)
+    n('Editor Agent' not in text and 'view: editor_agent' not in text, f'the Editor Agent is not in the session ({sessions})')
+
+
+@check('#82 A shell that ends: the panel says so, Enter starts a new one')
+def shell_ended(n):
+    sb, work = sandbox('shell_ended')
+    fake_bin = os.path.join(sb, 'bin')
+    write(os.path.join(fake_bin, 'claude'), '#!/bin/sh\necho "fake-claude: $*"\nexec cat\n')
+    os.chmod(os.path.join(fake_bin, 'claude'), 0o755)
+    env = {'PATH': fake_bin + ':/usr/bin:/bin'}
+    user_config(sb, "main:\n  ai_integration: claude\nterminal:\n  shell: /bin/sh\n  bootstrap: [ \"echo boot-$((1+1))\" ]\n")
+    trust_claude(sb, work)
+    ended, again = 'the shell ended', 'Enter starts a new one'
+
+    def is_last(g, text):
+        rows = [l.strip() for l in g.screen.lines() if l.strip()]
+        return bool(rows) and text in rows[-1]
+
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False, env=env)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.5)
+        g.type('exit', wait=0.2)
+        g.send(ENTER, 0.5)
+        n(g.wait_text(ended, 4) and g.wait_text(again, 1), 'exit: the panel says the shell ended, and how to get one')
+        # A dot-command is the editor's, shell or not; a Ctrl chord and Tab have nowhere to go
+        g.type('.agent model', wait=0.2)
+        g.send(ENTER, 0.8)
+        n(g.wait_text("Editor Agent's model", 2), 'a dot-command still runs')
+        g.send(b'\x1b[119;5u', 0.3)
+        g.send(b'\t', 0.3)
+        # What is typed is kept, not run, by the Enter that starts the new shell
+        g.type('echo kept-$((40+2))', wait=0.2)
+        g.send(ENTER, 2.0)
+        n(g.wait_text('boot-2', 3), 'Enter: a new shell, its bootstrap run')
+        n(not g.screen.find('kept-42'), '... the typed line not run by it')
+        g.send(ENTER, 1.0)
+        n(g.wait_text('kept-42', 3), '... the next Enter runs it')
+        # A full-screen program goes down with its shell: the screen and the keyboard are the panel's again
+        g.type("printf '\\033[?1049h\\033[?1000h\\033[?25l'; kill -9 $$", wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_for(lambda g: is_last(g, ended), 4), 'killed in full screen: said on the normal screen')
+        g.send(ENTER, 2.0)
+        g.type('echo back-$((40+3))', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text('back-43', 3), '... and a new one works')
+        # readline had the line
+        g.type('exi', wait=0.2)
+        g.send(b'\x1b[117;5u', 0.4)
+        g.type('exit', wait=0.4)
+        g.send(ENTER, 1.0)
+        n(g.wait_for(lambda g: is_last(g, ended), 4), 'exit typed in readline: said')
+        g.send(ENTER, 2.0)
+        g.type('echo fine-$((40+4))', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text('fine-44', 3), '... and the line is the editor\'s again')
+
+        # The Editor Agent's: not by Enter (its conversation is over) - '.agent start' replaces it
+        g.type('.agent start', wait=0.2)
+        g.send(ENTER, 2.0)
+        n(g.wait_text('fake-claude', 3), 'the Editor Agent runs')
+        g.send(b'\x03', 0.8)
+        g.type('exit', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text(ended, 4) and g.wait_text("'.agent start'", 1), 'its shell ended: it names .agent start')
+        g.send(ENTER, 1.0)
+        n(not g.screen.find(again), '... Enter starts nothing')
+        g.send(alt('1'), 0.5)
+        g.type('.agent start', wait=0.2)
+        g.send(ENTER, 2.5)
+        n(g.wait_for(lambda g: g.screen.find('fake-claude') and not g.screen.find(ended), 4), '.agent start: a new one, not the dead tab')
+        g.send(alt('e'), 0.4)     # Esc in its tab is the agent's
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
+@check('#78 step 2 .ask: consent, the agent started, the prompt typed in once it settles, the answer opened')
+def editor_agent_ask(n):
+    sb, work = sandbox('editor_agent_ask')
+    # A fake 'claude' (agent calls cost money): reads pastes (?2004), and for a line naming its answer file writes it -
+    # as the real one is asked to. It notes its arguments where the check can read them.
+    fake_bin = os.path.join(sb, 'bin')
+    args_file = os.path.join(sb, 'fake-claude-args')
+    write(os.path.join(fake_bin, 'claude'), '#!/bin/sh\n'
+          f'echo "$*" > \'{args_file}\'\n'
+          'echo "fake-claude: $*"\n'
+          'printf \'\\033[?2004h> \'\n'
+          'while IFS= read -r line; do\n'
+          '  case "$line" in\n'
+          '    *"to the file "*)\n'
+          '      f=$(printf "%s" "$line" | sed -e "s/.*to the file //" -e "s/ - create or replace.*//")\n'
+          '      printf "# Fake answer\\n\\nforty-two\\n" > "$f"\n'
+          '      echo "fake-claude wrote it"\n'
+          '      printf "> ";;\n'
+          '  esac\n'
+          'done\n')
+    os.chmod(os.path.join(fake_bin, 'claude'), 0o755)
+    env = {'PATH': fake_bin + ':/usr/bin:/bin'}
+    user_config(sb, "main:\n  ai_integration: claude\n  ai_settle_ms: 500\nterminal:\n  shell: /bin/sh\n")
+    qa = os.path.join(work, '.goatedit', 'agent_qa')
+
+    def qa_files(prefix):
+        return sorted(f for f in os.listdir(qa) if f.startswith(prefix)) if os.path.isdir(qa) else []
+
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False, env=env)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.4)
+        # A folder Claude hasn't been trusted in: refused - its trust dialog would get the editor's Enter
+        g.type('.ask what is this', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text("isn't trusted", 3), "an untrusted folder: refused, no modal")
+        n(not os.path.exists(args_file), '... and nothing started')
+        trust_claude(sb, work)
+        # Declined: nothing written, nothing started
+        g.type('.ask what is this', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text('To the Editor Agent', 3), 'a consent modal')
+        n(g.wait_text('it is started first', 1), '... saying the agent is started first')
+        g.send(b'c', 0.8)
+        n(g.wait_text('Not asked', 2), 'Cancel: not asked')
+        n(qa_files('q_') == [] and not os.path.exists(args_file), 'nothing written, no agent started')
+
+        g.type('.ask why is the sky blue', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text('To the Editor Agent', 3), 'the modal again')
+        text = '\n'.join(g.screen.lines())
+        n('why is the sky blue' in text and 'no other file' in text, 'it shows the prompt, word for word')
+        g.send(b's', 0.5)
+        n(g.wait_text('forty-two', 12), 'the answer is opened')
+        n(g.wait_text('EA: idle', 4), f"the status line: EA: idle ({[l for l in g.screen.lines() if 'EA:' in l]})")
+        qs, ans = qa_files('q_'), qa_files('a_')
+        n(len(qs) == 1 and len(ans) == 1 and qs[0][2:] == ans[0][2:], f'one q_/a_ pair with one id ({qs}, {ans})')
+        qtext = open(os.path.join(qa, qs[0])).read() if qs else ''
+        args = open(args_file).read() if os.path.exists(args_file) else ''
+        n('# Question\n\nwhy is the sky blue' in qtext, 'the question file holds the question')
+        session = next((l.split(': ', 1)[1] for l in qtext.splitlines() if l.startswith('session: ')), '?')
+        n(f'--session-id {session}' in args, f'the agent runs in the conversation the question names ({session})')
+        n('--permission-mode dontAsk' in args and '/.goatedit/agent_qa/a_*' in args, f'read-only, answers only ({args.strip()})')
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
+def fake_answering_claude(sb):
+    """A fake 'claude' (agent calls cost money): reads pastes (?2004), and for a line naming its answer file writes it"""
+    fake_bin = os.path.join(sb, 'bin')
+    write(os.path.join(fake_bin, 'claude'), '#!/bin/sh\n'
+          'echo "fake-claude: $*"\n'
+          'printf \'\\033[?2004h> \'\n'
+          'while IFS= read -r line; do\n'
+          '  case "$line" in\n'
+          '    *"to the file "*)\n'
+          '      f=$(printf "%s" "$line" | sed -e "s/.*to the file //" -e "s/ - create or replace.*//")\n'
+          '      printf "# Fake answer\\n\\nforty-two\\n" > "$f"\n'
+          '      echo "fake-claude wrote it"\n'
+          '      printf "> ";;\n'
+          '  esac\n'
+          'done\n')
+    os.chmod(os.path.join(fake_bin, 'claude'), 0o755)
+    return {'PATH': fake_bin + ':/usr/bin:/bin'}
+
+
+@check('#78 step 3 .ask <template>: the tools run first, their output in the prompt you OK; list, a failing tool')
+def editor_agent_template(n):
+    sb, work = sandbox('editor_agent_template')
+    env = fake_answering_claude(sb)
+    user_config(sb, "main:\n  ai_integration: claude\n  autosave_timeout_ms: 0\n  ai_settle_ms: 500\nterminal:\n  shell: /bin/sh\n")
+    trust_claude(sb, work)
+    # A repository with a reason on record: the commit names #42
+    write(os.path.join(work, 'hello.c'), 'int main() {\n    return 0;\n}\n')
+    git(work, 'init', '-q', '-b', 'main')
+    git(work, 'add', 'hello.c')
+    git(work, 'commit', '-q', '-m', '#42 hello: the smallest program that builds\n\nKept as the build smoke test.')
+    # A user template whose tool fails, and a user tool that shadows nothing
+    user_dir = os.path.join(sb, 'home', '.config', 'goatedit')
+    write(os.path.join(user_dir, 'tools', 'broken.py'), 'import sys\nprint("it broke", file=sys.stderr)\nsys.exit(3)\n')
+    write(os.path.join(user_dir, 'questions', 'broken.md'), '---\nname: broken\ntools:\n  out: broken.py\n---\n{tool:out}\n')
+    qa = os.path.join(work, '.goatedit', 'agent_qa')
+
+    def qa_files(prefix):
+        return sorted(f for f in os.listdir(qa) if f.startswith(prefix)) if os.path.isdir(qa) else []
+
+    g = Goat(sb, ['hello.c'], cwd=work, skip_user_config=False, env=env)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.4)
+        g.type('.ask list', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text('Why is this line here?', 3), '.ask list: why')
+        n(g.wait_text('.ask structure [git revision', 1), '... structure, with what its argument is')
+        n(g.wait_text('broken', 1), "... and the user's own")
+
+        # The failing tool: a notice, no modal, nothing written
+        g.type('.ask broken', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text('broken.py failed (exit 3): it broke', 4), 'a failing tool: what it said, nothing asked')
+        n(qa_files('q_') == [], '... nothing written')
+
+        # More words than the template takes: a free question, no tools
+        g.type('.ask why is the sky blue', wait=0.2)
+        g.send(ENTER, 1.0)
+        n(g.wait_text('To the Editor Agent', 3), "'.ask why is the sky blue': the free-text modal")
+        n('why is the sky blue' in '\n'.join(g.screen.lines()), '... with the question as typed')
+        g.send(b'c', 0.8)
+
+        # With unsaved changes the consent says the files are read as saved
+        g.send(alt('e'), 0.4)
+        g.type('x', wait=0.4)
+        g.send(alt('t'), 0.4)
+        g.type('.ask why', wait=0.2)
+        g.send(ENTER, 0.5)
+        n(g.wait_text('Read as last saved - unsaved: hello.c', 6), 'unsaved changes: said in the consent')
+        g.send(b'c', 0.8)
+        g.send(alt('e'), 0.4)
+        g.send(b'\x7f', 0.4)
+        g.send(alt('t'), 0.4)
+
+        # 'why' on line 1 of hello.c: the chain gathered, shown in the modal, sent, answered
+        g.type('.ask why', wait=0.2)
+        g.send(ENTER, 0.5)
+        n(g.wait_text('To the Editor Agent', 6), "'.ask why': the modal, once the tool has run")
+        text = '\n'.join(g.screen.lines())
+        n('Why is line 1 of `hello.c` here?' in text, 'the prompt names the caret\'s file and line')
+        n('#42 hello: the smallest program' in text, "the tool's output is in it - the commit and its #N")
+        # Send / Cancel above the prompt, under the header - a prompt taller than the screen can't hide them
+        lines = g.screen.lines()
+        row = lambda needle: next((i for i, l in enumerate(lines) if needle in l), -1)
+        n(0 <= row('Kept with its answer') < row('[S]end') < row('Why is line 1'),
+          f"header, then Send / Cancel, then the prompt (rows {row('Kept with its answer')}, {row('[S]end')}, {row('Why is line 1')})")
+        n('─' in lines[row('[S]end') + 1], 'a rule between the choices and the prompt')
+        g.send(b's', 0.1)
+        # While it answers the status line moves: the dot sweeping, the seconds
+        deadline, seen = time.time() + 12, ''      # the agent is started first
+        while time.time() < deadline and not seen:
+            seen = next((l for l in g.screen.lines() if 'EA:' in l and '●' in l and 'answering' in l), '')
+            g.pump(0.1)
+        n(seen != '', f'EA: answering, with the indicator ({seen.strip()[-40:]!r})')
+        n(g.wait_text('forty-two', 12), 'the answer is opened')
+        qs = qa_files('q_')
+        qtext = open(os.path.join(qa, qs[0])).read() if qs else ''
+        n('template: why\nargs: hello.c:1\n' in qtext, f'the question file says which template, about what ({qs})')
+        n('Kept as the build smoke test.' in qtext, '... and holds the prompt as sent, the chain included')
+
+        # 'structure': the change in the work tree against the branch point - the scan is the editor's own --dump
+        write(os.path.join(work, 'hello.c'), 'struct Greeter { int times; };\nint main() {\n    return 0;\n}\n')
+        g.send(alt('t'), 0.4)
+        g.type('.ask structure', wait=0.2)
+        g.send(ENTER, 0.5)
+        n(g.wait_text('To the Editor Agent', 8), "'.ask structure': the modal")
+        text = '\n'.join(g.screen.lines())
+        n('type-diff' in text and 'the work tree' in text, 'the type-diff against the branch point is in the prompt')
+        n('types +1 -0' in text, f"... and it saw the new struct ({[l for l in g.screen.lines() if 'types' in l]})")
+        g.send(b'c', 0.8)
+        # An untracked file is named, not scanned - it may be no part of the change
+        write(os.path.join(work, 'reference.h'), 'struct Borrowed { int times; };\n')
+        g.type('.ask structure', wait=0.2)
+        g.send(ENTER, 0.5)
+        n(g.wait_text('To the Editor Agent', 8), "'.ask structure' with an untracked file: the modal")
+        text = '\n'.join(g.screen.lines())
+        n('not scanned: 1 untracked' in text and 'reference.h' in text, '... names it')
+        n('types +1 -0' in text and 'Borrowed' not in text, '... and leaves its types out')
+        n('Read as last saved' not in text, 'nothing unsaved: not a word about it')
+        g.send(b'c', 0.8)
+        # A type name where a revision goes: said plainly, not a traceback
+        g.type('.ask structure Greeter', wait=0.2)
+        g.send(ENTER, 0.5)
+        n(g.wait_text("'Greeter' is not a git revision", 6), "'.ask structure Greeter': not a git revision, said plainly")
+        n(g.quit(), 'quits')
+    finally:
+        g.kill()
+
+
+@check('#78 step 3 the tools: why.py finds where a copied line came from; typediff.py scans what the build names')
+def agent_tools(n):
+    sb, work = sandbox('agent_tools')
+    tools = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'Assets', 'Resources', 'Tools')
+
+    def tool(name, *args):
+        run = subprocess.run([sys.executable, os.path.join(tools, name), *args], capture_output=True, text=True, cwd=work)
+        return run.stdout + run.stderr
+
+    def commit(message, *paths):
+        git(work, 'add', *paths)
+        git(work, 'commit', '-q', '-m', message)
+
+    line = 'int scaled = value * kSubPixelOne;'
+    write(os.path.join(work, 'CMakeLists.txt'), 'add_executable(app old.c)\n')
+    write(os.path.join(work, 'notes.md'), f'Plan: `{line}`\n')
+    git(work, 'init', '-q', '-b', 'main')
+    commit('plan', 'CMakeLists.txt', 'notes.md')
+    write(os.path.join(work, 'old.c'), f'{line}\n')
+    commit('the first draft\n\nFour bits are enough.', 'old.c')
+    write(os.path.join(work, 'copy.c'), f'{line}\nreturn;\nint unrelated_and_new_here = 1;\n')
+    commit('a copy of it', 'copy.c')
+    out = tool('why.py', 'copy.c:1')
+    n('a copy of it' in out, 'why: the blamed commit')
+    n('origin  the same text was first committed in' in out and 'the first draft' in out and '| Four bits are enough.' in out,
+      'why: where the text was first committed, and why - not the .md that quotes it')
+    n('there in old.c' in out, '... in which file')
+    n('origin' not in tool('why.py', 'copy.c:2'), 'a short line: not searched')
+    n('origin  this commit' in tool('why.py', 'copy.c:3'), "a line that is new in its commit: said so")
+    for i in range(21):
+        write(os.path.join(work, 'many', f'm{i}.c'), f'{line}\n')
+    commit('everywhere', 'many')
+    n('origin  not searched: the same line is in 23 files' in tool('why.py', 'copy.c:1'), 'a line in many files: not searched')
+
+    # Untracked: named in a tracked build file (root, its own folder, a variable), the header next to one, a comment only, none
+    write(os.path.join(work, 'CMakeLists.txt'), 'add_executable(app old.c src/panel.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/var.cpp)\n'
+                                                '# src/commented.cpp is not built\nadd_subdirectory(sub)\n')
+    write(os.path.join(work, 'sub', 'CMakeLists.txt'), 'add_library(sub inner.cpp)\n')
+    git(work, 'add', 'sub/CMakeLists.txt')
+    for path in ('src/panel.cpp', 'src/panel.h', 'src/var.cpp', 'src/commented.cpp', 'sub/inner.cpp', 'inner.cpp', 'ref/panel.cpp'):
+        write(os.path.join(work, path), 'struct S_' + path.replace('/', '_').replace('.', '_') + ' { int x; };\n')
+    out = tool('typediff.py', '--goatedit', Goat.EXE, 'HEAD')
+    for path in ('src/panel.cpp', 'src/panel.h', 'src/var.cpp', 'sub/inner.cpp'):
+        n('S_' + path.replace('/', '_').replace('.', '_') in out, f'scanned: {path}')
+    for path in ('src/commented.cpp', 'inner.cpp', 'ref/panel.cpp'):
+        n(re.search(r'S_' + path.replace('/', '_').replace('.', '_') + r'\b', out) is None, f'not scanned: {path}')
+    n('untracked but named in a build file' in out and 'not scanned: 3 untracked' in out, f'and says which is which\n{out[:900]}')
+
+
+# --- The real agent: opt-in only (--real-agent), never in the default run - each question costs the user's tokens ---
+REAL_AGENT = {'enabled': False, 'model': ''}
+# Automated questions to the real agent: at most this many per hour, over all runs (the user's rule, 2026-11-24)
+REAL_AGENT_PER_HOUR = 25
+REAL_AGENT_LEDGER = os.path.expanduser('~/.cache/goatedit-handtests/real-agent-ledger')
+
+
+def real_agent_budget():
+    """Questions left this hour - the ledger holds one time per question sent, over all runs"""
+    now = time.time()
+    try:
+        with open(REAL_AGENT_LEDGER) as f:
+            times = [float(l) for l in f if l.strip()]
+    except OSError:
+        times = []
+    return REAL_AGENT_PER_HOUR - sum(1 for t in times if now - t < 3600)
+
+
+def real_agent_spend():
+    os.makedirs(os.path.dirname(REAL_AGENT_LEDGER), exist_ok=True)
+    with open(REAL_AGENT_LEDGER, 'a') as f:
+        f.write(f'{time.time()}\n')
+
+
+def real_trusted(folder):
+    """The user's own Claude Code has been trusted in 'folder' (either spelling of the path)"""
+    try:
+        with open(os.path.expanduser('~/.claude.json')) as f:
+            projects = json.load(f).get('projects', {})
+    except (OSError, ValueError):
+        return False
+    return any(projects.get(p, {}).get('hasTrustDialogAccepted') for p in {folder, os.path.realpath(folder)})
+
+
+@check('#78 step 2 .ask with the REAL agent (--real-agent): two questions, what each cost - opt-in, 25/hour')
+def real_agent_ask(n):
+    if not REAL_AGENT['enabled']:
+        n.skip('the real agent only with --real-agent (each question costs tokens)')
+    questions = ['What does hello.c print? Answer in one line.',
+                 'Which function in hello.c runs first? Answer in one line.']
+    left = real_agent_budget()
+    if left < len(questions):
+        n.skip(f'the hour\'s budget is spent: {left} of {REAL_AGENT_PER_HOUR} left ({REAL_AGENT_LEDGER})')
+    real = shutil.which('claude') or shutil.which('claude', path=os.path.expanduser('~/.local/bin'))
+    if real is None:
+        n.skip('no claude installed (or its link dangles - see below)')
+    if os.path.realpath(real).startswith(os.path.realpath(tempfile.gettempdir())):
+        n.skip(f'{real} points into a temp folder ({os.path.realpath(real)}) - an earlier check re-linked it; '
+               f'point it back at ~/.local/share/claude/versions/<version>')
+    # The same path every run (the sandbox is wiped, not moved), so the user trusts it once
+    sb, work = sandbox('real_agent_ask')
+    if not real_trusted(work):
+        n.skip(f"Claude Code isn't trusted in {work} - run 'claude' there once, accept, quit; then again")
+    write(os.path.join(work, 'hello.c'), '#include <stdio.h>\nint main(void) {\n    printf("hello, goat\\n");\n    return 0;\n}\n')
+    # The real claude with the user's HOME (their login and its trust record); the editor's HOME stays the sandbox's,
+    # with the user's transcripts linked in so the editor can read what each question cost
+    # The sandbox's XDG_* must not reach it: with XDG_DATA_HOME in the sandbox, its self-installer put a copy there and
+    # re-linked the user's ~/.local/bin/claude to it - dangling once the sandbox was wiped. The user's own XDG settings
+    # (or none), and no auto-update from a check.
+    fake_bin = os.path.join(sb, 'bin')
+    xdg = ''.join(f"{k}='{os.environ[k]}' " if k in os.environ else f'-u {k} '
+                  for k in ('XDG_CONFIG_HOME', 'XDG_STATE_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME'))
+    write(os.path.join(fake_bin, 'claude'),
+          f'#!/bin/sh\nexec env {xdg}HOME=\'{os.path.expanduser("~")}\' DISABLE_AUTOUPDATER=1 \'{real}\' "$@"\n')
+    os.chmod(os.path.join(fake_bin, 'claude'), 0o755)
+    os.symlink(os.path.expanduser('~/.claude'), os.path.join(sb, 'home', '.claude'))
+    trust_claude(sb, work)
+    model = f"\n  ai_model: {REAL_AGENT['model']}" if REAL_AGENT['model'] else ''
+    user_config(sb, f"main:\n  ai_integration: claude{model}\nterminal:\n  shell: /bin/sh\n")
+    qa = os.path.join(work, '.goatedit', 'agent_qa')
+    env = {'PATH': fake_bin + ':/usr/bin:/bin'}
+
+    g = Goat(sb, ['.'], cwd=work, skip_user_config=False, env=env)
+    try:
+        g.ready()
+        g.send(alt('t'), 0.4)
+        for i, question in enumerate(questions):
+            g.type('.ask ' + question, wait=0.2)
+            g.send(ENTER, 1.0)
+            if not n(g.wait_text('To the Editor Agent', 3), f'question {i + 1}: the consent modal'):
+                break
+            real_agent_spend()
+            g.send(b's', 0.5)
+            # Stop on anything unexpected: no answer within two minutes is reported, not retried
+            seen = []
+
+            def answered(g):
+                ea = g.status_line().strip()
+                ea = ea[ea.rfind('EA:'):] if 'EA:' in ea else '(no EA)'
+                if not seen or seen[-1] != ea:
+                    seen.append(ea)
+                return len([f for f in os.listdir(qa) if f.startswith('a_')]) > i if os.path.isdir(qa) else False
+            if not n(g.wait_for(answered, 120), f'question {i + 1}: answered within 2 minutes (status: {" -> ".join(seen)})'):
+                # What the agent's tab shows - its own tab, brought to the front
+                g.type('.agent start', wait=0.2)
+                g.send(ENTER, 1.5)
+                print('--- the screen, the agent tab in front:\n' + '\n'.join(l.rstrip() for l in g.screen.lines()))
+                break
+            n(g.wait_text('Answered - a_', 30), f'question {i + 1}: opened')
+            # The cost follows in the same message - read it once the screen has it all, not mid-redraw
+            g.wait_text('cached, out', 3)
+            status = next((l for l in g.screen.lines() if 'Answered - ' in l), '').strip()
+            n('cached' in status, f'question {i + 1}: what it cost: {status}')
+            g.send(alt('t'), 0.4)
+        n(g.quit(10), 'quits')
+    finally:
+        g.kill()
+    for name in sorted(os.listdir(qa)) if os.path.isdir(qa) else []:
+        print(f'--- {name}\n' + open(os.path.join(qa, name)).read())
 
 
 @check('#53 step 5 Messages tab: the build list kept open in the lower panel')
@@ -1427,6 +2149,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--exe', help='the goatedit binary (e.g. cmake-build-debug/goatedit)')
     ap.add_argument('--list', action='store_true', help='list the checks and the hitlist items they cover')
+    ap.add_argument('--real-agent', action='store_true',
+                    help=f'run real_agent_ask with the installed claude - costs tokens; at most {REAL_AGENT_PER_HOUR}/hour')
+    ap.add_argument('--real-agent-model', default='', help="the Editor Agent's model for --real-agent (main.ai_model)")
     ap.add_argument('names', nargs='*')
     args = ap.parse_args()
     if args.list:
@@ -1439,6 +2164,8 @@ def main():
     if unknown:
         ap.error(f'no such check: {", ".join(unknown)} (see --list)')
     Goat.EXE = os.path.abspath(args.exe)
+    REAL_AGENT['enabled'] = args.real_agent
+    REAL_AGENT['model'] = args.real_agent_model
     selected = [c for c in CHECKS if not args.names or c.__name__ in args.names]
     summary = []
     for fn in selected:

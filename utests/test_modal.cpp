@@ -29,6 +29,7 @@ extern "C" {
     DLL_EXPORT int test_modal_confirmselect(ITesting *t);
     DLL_EXPORT int test_modal_confirmcancel(ITesting *t);
     DLL_EXPORT int test_modal_confirmsize(ITesting *t);
+    DLL_EXPORT int test_modal_confirmabove(ITesting *t);
 }
 
 namespace {
@@ -472,5 +473,53 @@ DLL_EXPORT int test_modal_confirmsize(ITesting *t) {
     TR_ASSERT(t, huge.Width() <= screenRect.Width());
     TR_ASSERT(t, huge.TopLeft().x >= 0);
     rootView.OnAction(UIAction(kUIAction::kUIActionCloseModal));
+    return kTR_Pass;
+}
+
+// Choices above (a prompt taller than the screen): a header adds its lines and a gap, the placement costs no rows (the
+// rule takes the blank row the choices had below them); one taller than the screen is cut to it, top on the screen's
+// first row - where the choices are, so they still work
+DLL_EXPORT int test_modal_confirmabove(ITesting *t) {
+    Fixture fixture;
+    auto &rootView = fixture.rootView;
+    auto screenRect = UIHost::Instance().GetScreen()->Dimensions();
+
+    ConfirmLog log;
+    rootView.ShowModal(SaveDiscardCancel(log, U"one\ntwo"));
+    auto below = rootView.TopModal()->GetViewRect();
+    rootView.OnAction(UIAction(kUIAction::kUIActionCloseModal));
+
+    auto above = SaveDiscardCancel(log, U"one\ntwo");
+    TR_ASSERT(t, above->GetChoicePlacement() == ConfirmModal::kChoicePlacement::kBelow);
+    above->SetChoicePlacement(ConfirmModal::kChoicePlacement::kAbove);
+    rootView.ShowModal(std::move(above));
+    TR_ASSERT(t, rootView.TopModal()->GetViewRect().Height() == below.Height());
+    rootView.OnAction(UIAction(kUIAction::kUIActionCloseModal));
+
+    auto headed = SaveDiscardCancel(log, U"one\ntwo");
+    headed->SetChoicePlacement(ConfirmModal::kChoicePlacement::kAbove);
+    headed->SetHeader(U"To whom\nand a header line wider than anything in the message or the choices");
+    rootView.ShowModal(std::move(headed));
+    auto headedRect = rootView.TopModal()->GetViewRect();
+    TR_ASSERT(t, headedRect.Height() == below.Height() + 3);
+    TR_ASSERT(t, headedRect.Width() > below.Width());
+    rootView.OnAction(UIAction(kUIAction::kUIActionCloseModal));
+
+    std::u32string tall;
+    for (int i = 0; i < screenRect.Height() * 2; i++) {
+        tall += U"a line of the prompt\n";
+    }
+    ConfirmLog tallLog;
+    auto tallModal = SaveDiscardCancel(tallLog, tall);
+    tallModal->SetChoicePlacement(ConfirmModal::kChoicePlacement::kAbove);
+    tallModal->SetHeader(U"To whom");
+    rootView.ShowModal(std::move(tallModal));
+    auto tallRect = rootView.TopModal()->GetViewRect();
+    TR_ASSERT(t, tallRect.Height() <= screenRect.Height());
+    TR_ASSERT(t, tallRect.TopLeft().y == 0);
+    // The choices work as ever
+    rootView.HandleKeyPress(Key('d'));
+    TR_ASSERT(t, !rootView.HasModal());
+    TR_ASSERT(t, tallLog.idxChoice == 1);
     return kTR_Pass;
 }

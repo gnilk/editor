@@ -17,6 +17,13 @@ main:
   # select the keymap default for the backend
   # 'default' is a reserved word - replace with your file name when forking it...
   keymap: "default_keymap"
+  # Where the panels go (hitlist #77): portrait - one panel below the editor with every tab; landscape - the tabs of
+  # panel_right (below) in a full-height panel on the right, panel's at the bottom; auto - landscape when the window is
+  # wider than 3:2 at start-up. A tab keeps its home in both: portrait shows the right panel's tabs at the bottom.
+  layout: portrait
+  # The AI agent the editor works with (hitlist #78, docs/agent-integration.md): none | claude. none - the editor as it
+  # always was: nothing is started or sent. Only from your user config - a project's config can't set it.
+  ai_integration: none
   threaded_syntaxparser: yes
   # time in milliseconds before automatically saving a file after changes...
   # 0 disables autosave
@@ -329,6 +336,12 @@ messages:
 #      config: ai_agent
 #    - name: Messages
 #      view: messages          # config: messages (the section above)
+# The right panel's tabs (main.layout: landscape / auto - in portrait they join the bottom panel). The same shape as
+# panel.tabs. Unset: no right panel. A session that has tabs brings back its own, each in the panel it belongs in.
+#panel_right:
+#  tabs:
+#    - name: Claude
+#      config: ai_agent
 #ai_agent:
 #  inherit: terminal
 #  bootstrap: [ "claude" ]     # run in the tab's shell when it starts - the shell's PATH, and a prompt when it quits

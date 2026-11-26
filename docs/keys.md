@@ -184,6 +184,10 @@ Typed in quick mode (`Esc`, then `.name` or `.short`, `Enter`) or at the termina
 | `.newbuffer` | `.nb` | name | New Buffer / File |
 | `.listbuffers` | `.lb` |  | List Buffers |
 | `.copyoutput` | `.co` |  | Copy the last terminal command's output to the clipboard |
+| `.layout` | `.layout` | portrait \| landscape \| auto | Layout: [portrait \| landscape \| auto] - where the panels go, for this run (main.layout is the start); none: the layout now |
+| `.agent` | `.agent` | start \| model (optional); model name (optional) | Agent: the AI agent main.ai_integration picks (none \| claude), whether it is found, what it would run; start - the Editor Agent's tab; model [name] - its model, for this session |
+| `.ask` | `.ask` | question | Ask: a question to the Editor Agent - shown for your OK first; kept with its answer in .goatedit/agent_qa/, the answer opened |
+| `.panel` | `.panel` | action | Panel: move - the focused panel's shown tab to the other panel (its home: kept across a restart) |
 | `.outputtobuffer` | `.ob` |  | Open the last terminal command's output in a new buffer |
 | `.closeactive` | `.cb` |  | Close Active Buffer (asks when it has changes not yet saved; '!' closes anyway) |
 | `.closeall` | `.ca` |  | Close All Buffers (asks when any has changes not yet saved; '!' closes anyway) |

@@ -2,7 +2,57 @@
 
 Status: **design, exploring** (2026-11-21), on `explore/agentic-questions`. Grew out of
 [`agentic-questions.md`](agentic-questions.md): once the questions were listed, the next question was where their answers'
-sources live, and how the editor and an agent agree on that. Nothing here is built.
+sources live, and how the editor and an agent agree on that.
+
+**Built so far (2026-11-24, branch `feature/agent-integration`, on top of #77 - for review):** the seam only - nothing is
+started or sent yet.
+- `AgentIntegration` (`src/Core/Agent/`): what the editor needs from an agent - its name and status, whether its command
+  is found, the working agent's and the question agent's command lines (§6.1, read-only), where it keeps this project's
+  transcripts (§5.2: session ids), a question put as a prompt that names its answer file (§4, PTY channel). Plain data -
+  nothing in it runs a process.
+- `NoAgent` - **`none`, the default**: every answer is "nothing". The editor as it was (Unaware).
+- `ClaudeAgent` - `claude`: `claude` / `claude --permission-mode plan` (plan mode reads, never edits - whether the answer
+  file can be its one write is still §8), transcripts in `$CLAUDE_CONFIG_DIR` or `~/.claude` + `projects/<the root, every
+  non-alphanumeric as '-'>`.
+- **`main.ai_integration: none | claude`** picks it, user config only - `ProjectConfigPolicy` strips it from a project's
+  config (a folder never switches an agent on; this is *which* agent - *whether* a project is Integrated stays the
+  profile's, `project-profile.md`). An unknown name: a start-up notice, `none`. `Editor::GetAgent()` is never null.
+- `.agent` prints it: which, found or not, what would be started for this project, the transcript folder.
+- Tests: `test_agent`; app check `agent_integration`.
+
+**Step 1 - the Editor Agent's tab (2026-11-24, branch `feature/editor-agent-tab`, on the seam - for review):** `.agent
+start` (typing it is the consent) opens it in the bottom panel - §6.2 items 2-5:
+- **Locked name** "Editor Agent" - the agent's terminal title doesn't replace it (`PanelView::AddEditorAgent`, a tab kind
+  `editor_agent` that neither `panel.tabs` nor a session can name).
+- **Marker:** its label is bold in the theme's `tab_editor_agent` (default theme: pink; the VS Code import: its magenta;
+  a theme without it: a violet of the panel's own) - `TabbedView::SetTabMark`, generic.
+- **Banner:** a line of its own under the tab row, outside the terminal (`TabbedView::SetTabInfoLine`, in the mark's
+  colour) - whose agent it is, what it runs, that closing the tab stops it. First written into the terminal, but the
+  agent goes full screen and cleared it (user, 11-24).
+- **Lifecycle:** not saved in the session (so not brought back); `.panel move` and the layout switch leave it at the
+  bottom; Cmd/Ctrl+W asks ("closing its tab stops it"); a second `.agent start` shows the running one. It is never the
+  output console (`output_console: no` in its settings) nor the promote target, and the bottom panel doesn't count it
+  as its terminal.
+- Its settings: the user's `terminal` section copied, the bootstrap replaced by the agent's command
+  (`AgentIntegrations::EditorAgentSettings` - plan mode for Claude). Nothing is sent to it yet.
+
+**Step 2 - `.ask` (2026-11-24, branch `feature/editor-agent-ask`, on step 1 - for review):** one question all the way
+round, as §6.3 says: `AgentAsk` (the driver, `src/Core/Editor/`) and `AgentQuestion` (the question as a state machine,
+`src/Core/Agent/`); the Editor Agent starts with `dontAsk` + `Edit(//<root>/.goatedit/agent_qa/a_*)` and the editor's
+session id; `TerminalController::IsSettled` / `HasFocus`; `main.ai_settle_ms` (user config only); `EA:` on the status
+line. A question starts the agent *behind* the shown tab (`.agent start` still shows it). Tests: `test_agent`
+(`question_*`, `session_id`), `test_terminalcontroller_settled`; app check `editor_agent_ask` (a fake `claude` that reads
+the paste and writes the answer). **Not yet tried with the real `claude`** - the flags, the title, whether its Enter
+after a paste lands: one real question, on the user's go.
+
+**Next (decided 2026-11-24, §6.2):** no `view: agent` tab that follows `ai_integration` - the **User Agent** stays a
+plain terminal tab the user configures (`config: ai_agent`, its bootstrap runs `claude`), and the editor knows nothing
+about it. The **Editor Agent** - the question agent of §6.1 - is the editor's own tab, started on the first question the
+user consents to and never from `panel.tabs`, so a project can't start it. First build: its fixed name, its marker, its
+banner, its lifecycle (§6.2 items 2-5); then the prompt / answer-file round trip (§6). **Step 2** (the `.ask` round trip) is designed in §6.3, for review. Codex: a second implementation once
+its read-only flags are checked. Whether the code and config names follow the new terms (the key, `WorkingAgentCommand`)
+is the user's to decide after reading the code - not yet. **Step 3** (questions from templates, the tools' output in the
+prompt) is in §6.4 - built, for review.
 
 The short version: **tools gather, the agent judges.** The editor runs cheap, repeatable tools for the facts (blame chain,
 type-diff, coverage, call stacks), puts them in a prompt, sends it to an agent with the user's consent, and shows the answer.
@@ -163,6 +213,263 @@ whether that one runs in another editor tab or in a terminal outside.
   tagged with the session that ended the turn (§5.2), and the question agent's output sits in `.goatedit/`, outside the
   snapshots.
 
+### 6.2 Editor Agent and User Agent - telling them apart
+
+Terms (2026-11-24, for the design - the code and config names are not changed yet):
+- **User Agent** - the one the user works with. A plain terminal tab with a custom command: `panel_right.tabs` with
+  `config: ai_agent`, whose bootstrap runs `claude`. The editor is unaware of it - it is a shell tab like any other.
+- **Editor Agent** - the question agent (§6.1): started and driven by the editor, through the `AgentIntegration` adapter
+  picked in the user config. Templated prompts (the questions in `agentic-questions.md`, filled with the tools' output),
+  answers into files under `.goatedit/`.
+
+Both are visible - full transparency is the default (§1) - so they must never be mistaken for each other:
+
+1. **Placement by owner.** The bottom panel holds the editor's things (Messages, build output) and the right panel the
+   user's work: by default the Editor Agent's tab goes to the bottom, the User Agent to the right. In portrait both are at
+   the bottom, so placement alone is not enough - hence 2 and 3.
+2. **A locked name.** The tab is always "Editor Agent" - not the agent's own (changing) terminal title, not renamable.
+3. **A visual marker.** Its tab is drawn with its own theme key (a colour / mark), so the tab row tells the two apart at
+   a glance. 2 and 3 both - one alone is too easy to miss.
+4. **A banner in the tab.** Before the agent starts, the editor writes one line into it: who started it and why - the
+   Editor Agent, started by GoatEdit to answer questions, read-only, answers in `.goatedit/...`. Read once, nod, get to
+   work.
+5. **Its own lifecycle.** Never in `panel.tabs`, never restored from the session like a configured tab: the editor creates
+   it on the first question the user consents to. Closing it stops it. It doesn't move to the right panel (`.panel move`
+   leaves it), so it never turns into "another Claude tab".
+6. **A status-line indicator** - `EA: answering...` / `EA: idle` - what it is doing without opening it, and one place to
+   click to jump there.
+7. **Typing in it is allowed**, but visibly: typing while the editor has a prompt waiting gives a short notice (the PTY
+   channel needs the input line - §4). Not settled; start like this and see where it ends up.
+
+Build order: 2, 3, 4 and 5 with the first Editor Agent tab; then 1, 6 and 7.
+
+### 6.3 Step 2 - one question, all the way round (`.ask`)
+
+Status: **built** (2026-11-24, branch `feature/editor-agent-ask`, on step 1) - see the top of this doc. One free-text
+question, from the command line to an answer on screen, through the Editor Agent's tab. No templates, no tools' output in
+the prompt yet (step 3) - this is the round trip they will ride on. The user agreed to the design on 2026-11-24 and took
+decisions 1-3.
+
+**The flow:**
+
+1. **`.ask <question>`** - free text. (Later the templates call the same path with a filled prompt.)
+2. **The question is written down, then the prompt built** - the editor writes the question file `q_<id>.md` (below),
+   then `AgentIntegration::PromptWithAnswerFile(question, answerFile)` (exists) gives the question followed by "write
+   your answer as Markdown to `a_<id>.md`, change no other file".
+3. **Consent** - a modal shows *exactly* what will be typed, which agent gets it, and whether the agent must be started
+   first: **Send** / **Cancel**. Every question asks, in step 2. "Always for this kind" needs kinds - step 3 with the
+   templates, and the settings of §3.3. **Decided (user):** ask every time to begin with - it's easier to follow what
+   happens, and to stop and reflect.
+4. **Start if needed** - no Editor Agent running: the consent covered starting it; it starts as in step 1 (`.agent start`),
+   and the question waits for it to be idle (below).
+5. **Send** - when the agent is idle and its tab doesn't have the keyboard: the prompt goes in as one bracketed paste
+   (`ESC[200~ ... ESC[201~`, the agent asked for it with `?2004`), then Enter (CR) a moment later. As a paste, the prompt's
+   line breaks stay in the prompt instead of sending it early. The user sees it arrive in the tab like typed text (§1:
+   nothing hidden).
+6. **Wait** - the status line says so (below). The tab is not brought to front unless the user clicks there.
+7. **The answer** - the answer file appears and the agent is idle again: the editor opens the file in an editor tab
+   (Markdown is highlighted already) - an ordinary file from then on. A notice if the agent went idle without writing it ("no answer file - see the Editor Agent tab").
+
+**Where it goes - the question is kept with its answer (decided, user):** `<root>/.goatedit/agent_qa/`, one pair per
+question with a shared id `<yyyymmdd-hhmmss>-<n>`:
+- `q_<id>.md` - written by the editor before sending: the question as Markdown, with a short header (front matter: time,
+  agent, session id, answer file) and the prompt exactly as sent.
+- `a_<id>.md` - written by the agent: the answer.
+
+Plain Markdown pairs, so a good question can later be turned into a template or promoted into something like our own
+"skills". The agent's transcript is the third record. Not `cache/` - an answer can't be rebuilt. Nothing in `.goatedit/`
+is the project's truth (§5.1), and the shadow repo leaves it out (§5.2). Keeping it out of the user's `git status` (a
+line in `.git/info/exclude`) is a write into their setup - not in step 2; noted for setup (§3).
+
+**The agent starts read-only, writing only its answer files** (§6.1, closes the §8 item for Claude): plan mode can't write the
+answer file, so the question agent becomes, for Claude Code (2.1.331, from `claude --help`, not yet tried for real):
+
+    claude --permission-mode dontAsk --allowedTools "Read Grep Glob Edit(.goatedit/agent_qa/a_*)" --session-id <uuid>
+
+`dontAsk` denies anything not allowed up front - no permission prompts the user must answer in the tab, no edits
+but `a_*` files in `agent_qa/` - it can't change a question. (`Edit(...)` rules cover Write in Claude Code's rule syntax - to confirm.) `--session-id` is the editor
+choosing the id, so the question file and the shadow trailers (§5.2) know it without reading transcripts.
+`AgentIntegration::QuestionAgentCommand` gains the `agent_qa` folder and the session id. **This needs one real start to
+confirm** - a paid call, so only when the user says so; the checks run on the fake `claude`.
+
+**Idle - when may the editor type?** Per agent (`AgentIntegration`), from what the terminal shows, never from the screen
+text:
+- **Generic (any agent):** the agent has asked for bracketed paste (`?2004` - its input line is reading) **and** no output
+  for the **settle time** - the agent has settled down. Cheap, works for the fake. **Decided (user): 3 s, configurable**
+  - it differs between agents and platforms: each `AgentIntegration` gives its default (`SettleTime()`), the user config
+  overrides it (`main.ai_settle_ms` - provisional name, with the renames after the code review). User config only, like
+  `ai_integration`.
+- **Claude Code:** its terminal title changes while it works (a spinner glyph first) and settles when done - a sharper
+  signal, *if* it holds; to read off a real run before relying on it. Until then the generic rule.
+- **The user is in the tab:** not a timer - nothing is sent while the Editor Agent's tab has the keyboard; the info
+  line says a question waits, and it goes when focus leaves. (`.ask` itself is typed at the normal terminal's prompt -
+  no timer is about that.)
+
+**One question at a time.** A second `.ask` while one is out: queued, the status line counts them. No parallel questions
+in one agent - its conversation is sequential anyway.
+
+**Status line (§6.2 item 6), first version:** a short field on the right while the Editor Agent exists - `EA: starting`,
+`EA: idle`, `EA: waiting to send`, `EA: answering`, `EA: answered` (until the answer is opened), `EA: stopped`. In the
+Editor Agent's mark colour. A click jumps to its tab - with the mouse bindings (`mouse:`), a binding like any other.
+
+**What gets built (sketch, names open):**
+- `AgentQuestion` - one question: id, question file, answer file, prompt, state (`Consent` → `Starting` → `WaitingToSend` →
+  `Sent` → `Answered` / `NoAnswer` / `Cancelled`). Plain data, unit-tested as a state machine fed by events (idle,
+  file seen, tab closed) - no pty in the tests.
+- The question queue + driver in the editor: owns the queue, polls the answer file and the idle signal on the runloop's
+  timer, writes into the Editor Agent's pty through `TerminalController` (a `SendAsPaste` that wraps by `?2004`).
+- `TerminalController`: when the last output came, whether `?2004` is on, whether its tab has the keyboard - read under
+  `screenLock`.
+- `.ask` in `agent.js`; `docs/keys.md` regenerated.
+- Tests: the state machine; the paste wrapping; `ClaudeAgent`'s new command line. App check `editor_agent_ask`: a fake
+  `claude` that turns on `?2004`, reads a line, writes the file it names, and the check sees the answer opened and the
+  status line go `answering` → `answered`.
+
+**Added after the review (2026-11-24):**
+- **Trust guard.** In a folder Claude Code hasn't been trusted in, it opens with a trust dialog - and the editor's paste +
+  Enter would accept it for the user. So the Editor Agent isn't started there (`AgentIntegration::StartBlocker`; Claude:
+  `projects.<dir or a parent>.hasTrustDialogAccepted` in `~/.claude.json`): "run `claude` there once and accept".
+- **What a question cost.** At send the editor notes where the conversation's transcript ends; when the question is done
+  it sums the usage of the assistant messages after that (`UsageSince`, each message id once) and appends a `## Usage`
+  section to `q_<id>.md` - model, model calls, input / cache write / cache read / output tokens. The status line says
+  `Answered - a_<id>.md (in 31k + 0 cached, out 240)`.
+- **`main.ai_model`** (user config only): the Editor Agent's model (`--model`); empty is the agent's default.
+- **Budget for automated questions (the user's rule):** at most **25 per hour**, counted over every automated run. Real
+  round trips are never in the unit tests or the default checks - only `checks.py --real-agent real_agent_ask`, whose
+  ledger (`~/.cache/goatedit-handtests/real-agent-ledger`) refuses beyond the hour's 25. Interactive `.ask` is the
+  user's own, no cap. The check's folder must be trusted by the user's Claude Code once (it says where).
+- **CLAUDE.md is read by the Editor Agent too** - it starts in the project, and Claude Code auto-loads `CLAUDE.md` up the
+  tree. The only switch off is `--bare`, which needs an API key (not a subscription login). To be judged once the usage
+  is measured: a lean `CLAUDE.md` with the build / test / debugging recipes moved to a file it names (not `@`-imported,
+  so not loaded up front).
+
+**Not in step 2:** templates and the tools' output in the prompt (step 3); "always" consent and `full_auto` (§3.3); the
+headless channel; answers shown anywhere but an editor tab; `.git/info/exclude`.
+
+### 6.4 Step 3 - questions from templates
+
+Status: **built** (2026-11-24, branch `feature/editor-agent-ask`, on step 2 - for review). Step 2's round trip with the
+prompt filled by a template: the tools gather, the agent judges (§6). Decisions taken by the user on 2026-11-24: the tools ship with the editor; templates live in the
+system and user folders only; the first two are *why is this line here?* and *the structure of this change*; consent is
+still asked every time.
+
+**A template** is a Markdown file, front matter + the prompt:
+
+    ---
+    name: why
+    title: Why is this line here?
+    needs: [file, line]                 # what the editor fills from where the caret is
+    tools:
+      chain: why.py {file}:{line}       # run in the project root; its output is {tool:chain}
+    ---
+    This is what the repository records about line {line} of `{file}` - the commit that last changed it,
+    its message, the merge, the #N it names and the docs that mention them:
+
+    {tool:chain}
+
+    Why is this line here? Answer from the record above first; read the commit, the docs or the code
+    when it isn't enough, and say which. If the record doesn't say, say that - don't guess.
+
+- **Where:** `Assets/Resources/Questions/*.md` (system, through `InstallPaths`), then `~/.config/goatedit/questions/`
+  (user; a user template with the same `name` replaces the system one). **Not the project** - a template runs commands,
+  and a folder never runs code (`ProjectConfigPolicy`'s rule).
+- **Placeholders:** `{file}` (relative to the project root), `{line}` (1-based), `{symbol}` (the word under the caret),
+  `{root}`, `{revision}` (below), `{tool:<key>}`. Nothing else is expanded; an unknown one is an error shown before consent.
+- **Tools** are found in the system `Tools/` folder (`Assets/Resources/Tools/`, shipped), then the user's
+  `~/.config/goatedit/tools/`. A `.py` runs with `python3` - an installed `python3` is needed (Linux and macOS have it;
+  `.ask` says so when it's missing). Run with `Process` in the project root, the arguments split by the template - no
+  shell. Each tool's output is capped (`max_lines`, default 300): a long one is cut with a line saying so - the prompt's
+  cost stays bounded.
+
+**Asking:** `.ask <name> [args]` runs a template; `.ask list` lists them (name, title, what they need); anything else is
+step 2's free text, as now. A template's `needs` come from the editor's active document and caret - `.ask why` with no
+file open says so.
+
+**The flow** is step 2's with one step in front: `EA: gathering` while the tools run (async, `Process::Start`; the UI
+doesn't wait), then the prompt is filled and the **consent modal shows it all - the tools' output included**, exactly
+what will be typed. A tool that fails: its stderr and exit code go in a notice, nothing is asked. `q_<id>.md` gets the
+template's name and its arguments in the front matter (`template: why`, `args: src/Core/Line.cpp:120`), so a question
+can be asked again - and, later, a kind can be "always" (§3.3).
+
+**The first two:**
+1. **`why`** - *Why is this line here?* (`agentic-questions.md` reading cold; the probe that earned a clear yes, §3.3).
+   Tool: `why.py` moved from `scripts/explore/` to `Assets/Resources/Tools/` (the explore copy goes - one copy). Its
+   noise fix with it: only rare names are looked up in the docs.
+2. **`structure`** - *What did this change do to the structure?* (review; `typediff.py`, §3.1). From `{revision}` - a **git revision**, named so after the user read `[base]` as a base class (11-24): the branch
+   point - `git merge-base HEAD <trunk>`, the closest of `main` / `master` / `dev` / `develop` (fewest commits from it to
+   HEAD: here `main` lags far behind `dev`, and its branch point dragged in 141 files of dev's work - changed while
+   building); `.ask structure <revision>` picks another; a word that isn't one (a type name) is said so plainly. The tool works the default out itself - an empty `{revision}`
+   is dropped from its command line. Head: the work tree (saved files - a notice when there are unsaved buffers). Files: the C/C++
+   files changed since the base (`git diff --name-only <base>` - tracked files only, see below), not `feature_files.py`'s merges - that was for an old
+   feature, this is the change in progress.
+   - **It needs the structure scan from the shipped editor.** `typediff.py` ran `gedit-bench --dump`, which isn't
+     installed. So `goatedit --dump <file-or-folder>` - the same output (`StructureDump`, shared with the bench), no
+     screen, exits like `--import-theme` - the first piece of #74 (the index export). `{goatedit}` is the running
+     editor's own path (`InstallPaths::ExecutablePath`), so the tool always matches the binary.
+   - The prompt asks the agent to judge what the diff shows: new dependencies between folders, ownership changes, a rule
+     from `CLAUDE.md` broken (the `Views/` -> `Modals/` include `typediff.py` caught) - and to say what it's unsure of.
+
+**Sonnet and Opus, the same two questions (11-25, the user's project; one run each, Opus had Sonnet's old `structure`
+answer in its context - not a clean comparison).** Without the 54k start-up: `why` 4k / 38k cache write, 1.5k / 5.8k out;
+`structure` 7k / 111k, 3.1k / 11.2k. `why`: Sonnet's answer was right, Opus found the reason in the docs too. `structure`:
+Sonnet was shallow and got an ownership wrong; Opus held where checked, but missed a bug it had found the evening before -
+one answer is not a review. What it led to:
+- `why.py` says **where the line's text was first committed** (`git log -S`, any file but `.md`) - a copied line's blame
+  stops at the copy. Not for short lines or ones in more than 20 files; 10 s at most.
+- The type-diff also scans **untracked files a tracked build file names** (path from the root or the build file's folder,
+  comments left out) and the header next to one: the tracked-only rule had hidden four files of that change.
+- The prompt keeps the agent out of `agent_qa/`: Opus read an earlier answer.
+- A model per template was left out: switching starts a new conversation, 54k each time.
+
+**As built:** `AgentQuestionTemplate` (`src/Core/Agent/`) reads, lists and fills; `AgentAsk` runs the tools
+(`Process`, one after the other, `EA: gathering`) and shares the consent with free text. A template is used when the first
+word names one **and** the rest fit its `args` - `.ask why is the sky blue` stays a free question. Braces that aren't a
+placeholder (`{ return; }` in a code sample) stay as they are; `{{` is a literal `{`. A tool is a name only - no path, so
+a template can't reach outside the tool folders. `.ask list` also names the user files that aren't templates, and why; a template's `usage:` says what its args are (`[git revision - ...]`).
+Tests: `test_agent` (`template_*`, `question_template_file`); app check `editor_agent_template` (a scratch repository:
+`.ask list`, a failing user tool, free text, `why` sent and answered, `structure` seeing a new struct). The real agent:
+not yet - one `.ask why` and one `.ask structure` on the user's go.
+
+**After the first use (user, 2026-11-24):**
+- **The consent puts Send / Cancel above the prompt:** the header (to whom, where it is kept), a gap, the choices, a rule,
+  then the prompt - a prompt taller than the screen is cut at the bottom, the choices never are. `ConfirmModal`'s
+  `kChoicePlacement::kAbove` + `SetHeader` (`kBelow` stays the default). A workaround until modals scroll (hitlist #80).
+- **The status line moves while it takes a while:** `EA: ··•●• answering 12s` - a dot sweeping back and forth (glyphs
+  Andale Mono has; it has no braille) and the time, for gathering, starting, waiting to send and answering.
+- **The templates' prose is wrapped at 76**, the consent's width - wrapped at ~115 it broke raggedly there.
+
+**After a real `.ask structure` in another project (user, 2026-11-24; built 11-25):** the answer was good, the cost high (8
+calls, 180k cache write) - much of it untracked reference code that read as ~20 new types.
+- **The type-diff reads what git tracks** (`git add` is enough). Untracked C/C++ files are named, not scanned - by folder
+  when there are more than 20 - and the prompt says they may or may not be part of the change.
+- **The functions come last**, after the members: `max_lines` cuts the end, so it cuts the least telling list.
+- **`.agent model <name>`** - the Editor Agent's model for this session (`default`: back to `main.ai_model`; no name: which
+  it is). Nothing is written. One that runs is **started over with `--model`, a new conversation** - not `/model` typed
+  into it: Claude Code 2.1.331 saves that as the user's default for new sessions, and asks "Yes, switch / No, go back"
+  when there is a conversation to re-read uncached - which the next question's Enter would answer. Refused while a
+  question is out. The consent names the model.
+- **Bash is not off, it is filtered** (seen 11-25, 2.1.331; this doc said "no Bash"): Claude Code lets through commands it
+  takes for read-only (`git show` / `diff` / `blame`, `cat`, `grep`, `sed -n`) and refuses the rest, some reading ones too
+  (`git status`). Kept - `why` uses `git show`; no write but the answer files was seen. An allow rule in the user's own
+  Claude settings may widen it - not tried. The prompt says so: one command per call, refused means Read / Grep.
+- **Unsaved changes are said in the consent** - `Read as last saved - unsaved: a.cpp, ...` - for every question: the tools
+  and the agent read the files. Autosave (on by default, 1 s) makes it rare.
+
+**What gets built (sketch, kept from the design):**
+- `AgentQuestionTemplate` (`src/Core/Agent/`) - parse a template (front matter + body), list / find by name across the
+  two folders, fill the placeholders from plain data (the args, the tools' outputs). Plain data, unit-tested.
+- `AgentAsk`: `.ask <name>` -> resolve the args -> run the tools (a `Gathering` state before `Consent` in
+  `AgentQuestion`) -> fill -> step 2's path unchanged.
+- `goatedit --dump <dir>` (a `--unit-test`-like start-up flag that skips the screen); `Tools/why.py`, `Tools/typediff.py`
+  (+ what it uses of `feature_files.py`), `Questions/why.md`, `Questions/structure.md`, installed like the other assets.
+- Tests: template parsing / filling / unknown placeholder / user overrides system (`test_agent`); the tool runner with a
+  fake tool (output capped, failure reported). App check `editor_agent_template` with the fake `claude`: `.ask why` on a
+  line of a scratch repo, the consent shows the chain, the answer opens. One real `.ask why` and `.ask structure` on the
+  user's go (within the 25/hour).
+
+**Not in step 3:** project templates; "always for this kind" (§3.3); the other questions of `agentic-questions.md` (each
+waits for its probe); templates picked from a menu or a key (the command line only); `.ask` on a selection.
+
 ## 7. Code-care and output-care
 
 Some projects are about their code (the editor, testrunner, an Amiga intro), some about their output (a golf app) - the
@@ -176,9 +483,9 @@ structure and access, the more questions can be answered.
 - Where the meta lives (§5.3).
 - `AGENTS.md` vs the MCP server's instructions for telling the agent where the truth lives (§3 step 5).
 - The settings' names and granularity (`agent_mode`, per kind of question).
-- Idle detection for the PTY channel, per agent.
+- Idle detection for the PTY channel, per agent - generic rule and Claude's title in §6.3, the title to be confirmed.
 - Is the lock-file format documented anywhere stable; can a project-scoped MCP server be one the editor runs (not one the
   agent launches).
-- How the question agent is started read-only, per agent (Claude Code: permission mode / allowed tools), and whether its
-  answer file can be the only write it's allowed.
+- How the question agent is started read-only, per agent - Claude Code: `dontAsk` + allowed tools (§6.3), to confirm in
+  one real start.
 - An "answered by" column (tool / agent / both) in `agentic-questions.md` §1.

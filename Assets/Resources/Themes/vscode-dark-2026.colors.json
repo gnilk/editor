@@ -35,6 +35,7 @@
     "ui_tree_modified": "#e5ba7d",
     "ui_tree_added": "#73c991",
     "ui_tree_deleted": "#f48771",
+    "ui_tab_editor_agent": "#ad80d7",
     "terminal_foreground": "#cccccc",
     "terminal_selection": "rgba(57, 148, 188, 0.20)",
     "ansi0": "#000000",
@@ -157,7 +158,8 @@
       "tree_deleted": "var(ui_tree_deleted)",
       "tree_conflicted": "var(ui_tree_deleted)",
       "gutter_error": "var(ui_tree_deleted)",
-      "gutter_warning": "var(ui_tree_modified)"
+      "gutter_warning": "var(ui_tree_modified)",
+      "tab_editor_agent": "var(ui_tab_editor_agent)"
     },
     "terminal": {
       "background": "var(ui_background)",

@@ -121,10 +121,19 @@ static YAML::Node TerminalToNode(const TerminalSession &terminal) {
             tabNode["view"] = tab.view;
             tabNode["config"] = tab.config;
             tabNode["scrollbackFile"] = tab.scrollbackFile;
+            if (!tab.home.empty()) {
+                tabNode["home"] = tab.home;
+            }
             tabs.push_back(tabNode);
         }
         node["tabs"] = tabs;
         node["activeTab"] = terminal.activeTab;
+        if (terminal.activeTabId.has_value()) {
+            node["activeTabId"] = terminal.activeTabId.value();
+        }
+        if (terminal.activeTabIdRight.has_value()) {
+            node["activeTabIdRight"] = terminal.activeTabIdRight.value();
+        }
     }
     return node;
 }
@@ -144,9 +153,16 @@ static TerminalSession NodeToTerminal(const YAML::Node &node) {
             tab.view = tabNode["view"].as<std::string>("");
             tab.config = tabNode["config"].as<std::string>("");
             tab.scrollbackFile = tabNode["scrollbackFile"].as<std::string>("");
+            tab.home = tabNode["home"].as<std::string>("");
             terminal.tabs.push_back(tab);
         }
         terminal.activeTab = node["activeTab"].as<int32_t>(0);
+        if (node["activeTabId"]) {
+            terminal.activeTabId = node["activeTabId"].as<std::string>("");
+        }
+        if (node["activeTabIdRight"]) {
+            terminal.activeTabIdRight = node["activeTabIdRight"].as<std::string>("");
+        }
     }
     return terminal;
 }

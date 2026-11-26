@@ -1,3 +1,25 @@
+## 36. FIXED — quit (Cmd+Q, `.q`) or closing a terminal tab could hang for good: later shells held a tab's pty master
+
+> **FIXED (2026-11-24, branch `fix/pty-cloexec`, hitlist #79).** Seen on the Mac with three tabs - Shell, the User Agent
+> (`claude`) and the Editor Agent (`claude --permission-mode plan`): Cmd+Q, the window went, the process stayed. `sample`:
+> the main thread in `~PanelHost` -> ... -> `Shell::Close` -> `reader.join()`, the reader in `ReapChild`'s blocking
+> `waitpid` after SIGKILL; the User Agent's zsh in state `E` (exiting, never done), its `claude` still running. `lsof`:
+> the pty master from `forkpty` wasn't close-on-exec (only the wake pipe was), so every shell started later held the
+> earlier tabs' masters - closing ours didn't close the pty, no hangup reached the job, and the dying shell waited in
+> the kernel on a tty nobody read.
+> - `FD_CLOEXEC` on the master right after `forkpty`, and the child closes every fd above stderr before `exec`
+>   (`Shell::CloseInheritedFds` - also a master forked between another tab's `forkpty` and its `FD_CLOEXEC`).
+> - The hangup goes to the tty's foreground process group too (`tcgetpgrp`) - a job in its own group (an agent) goes
+>   with its tab, as with a closing terminal.
+> - The reap is bounded after SIGKILL as well (1 s): a child that can't be reaped is logged and left behind - Close()
+>   runs on the UI thread (a tab closed with Cmd/Ctrl+W) and must return.
+>
+> Regression: `test_process_shellclose_second_shell` - a job that ignores SIGHUP and writes for ever in a first shell, a
+> second shell started after it; closing the first returns and the job is gone (on the old code the job kept running).
+> Linux: the same code - not run there yet.
+
+---
+
 ## 35. FIXED — flaky on Linux: `foldermonitor_repeat`, a late event ended a step's wait early
 
 > **FIXED (2026-11-18, branch `fix/foldermonitor-flake`).** Seen once in the verified-green set on Linux

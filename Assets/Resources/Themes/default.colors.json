@@ -122,7 +122,8 @@
       "tree_added": "var(green)",
       "tree_untracked": "var(green)",
       "tree_deleted": "var(red)",
-      "tree_conflicted": "var(red2)"
+      "tree_conflicted": "var(red2)",
+      "tab_editor_agent": "var(pink)"
     },
     "terminal": {
       "selection": "var(term_selection)",

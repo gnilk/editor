@@ -36,8 +36,13 @@ ViewBase *TabbedView::AddTab(std::unique_ptr<ViewBase> newView, const std::u32st
 }
 
 void TabbedView::RemoveTab(size_t idxTab) {
+    // Deleted here
+    TakeTab(idxTab);
+}
+
+std::unique_ptr<ViewBase> TabbedView::TakeTab(size_t idxTab) {
     if (idxTab >= tabs.size()) {
-        return;
+        return nullptr;
     }
     auto view = tabs[idxTab].view.get();
     bool wasShown = (activeTab == idxTab);
@@ -47,10 +52,10 @@ void TabbedView::RemoveTab(size_t idxTab) {
         view->SetActive(false);
     }
     view->SetVisible(false);
-    // Deleted when this returns - after the handler, which may still ask about the tabs
+    // Handed back after the handler, which may still ask about the tabs
     auto removed = std::move(tabs[idxTab].view);
     tabs.erase(tabs.begin() + (long)idxTab);
-    std::erase(subviews, view);
+    RemoveView(view);
 
     if (tabs.empty()) {
         activeTab.reset();
@@ -73,6 +78,7 @@ void TabbedView::RemoveTab(size_t idxTab) {
     if (wasShown && activeTab.has_value() && tabChangedHandler) {
         tabChangedHandler(activeTab.value());
     }
+    return removed;
 }
 
 ViewBase *TabbedView::TabView(size_t idxTab) const {
@@ -140,6 +146,40 @@ void TabbedView::SetTabLabel(size_t idxTab, const std::u32string &label) {
     if (IsTabRowVisible()) {
         InvalidateView();
     }
+}
+
+void TabbedView::SetTabMark(size_t idxTab, const std::string &colorKey, ColorRGBA fallback) {
+    if (idxTab >= tabs.size()) {
+        return;
+    }
+    tabs[idxTab].markColorKey = colorKey;
+    tabs[idxTab].markFallback = fallback;
+    InvalidateView();
+}
+
+bool TabbedView::IsTabMarked(size_t idxTab) const {
+    return (idxTab < tabs.size()) && !tabs[idxTab].markColorKey.empty();
+}
+
+void TabbedView::SetTabInfoLine(size_t idxTab, const std::u32string &text) {
+    if ((idxTab >= tabs.size()) || (tabs[idxTab].infoLine == text)) {
+        return;
+    }
+    bool hadLine = HasInfoLine();
+    tabs[idxTab].infoLine = text;
+    // Shown: the view gains or loses a row
+    if (hadLine != HasInfoLine()) {
+        LayoutTabs();
+        if (auto active = ActiveView()) {
+            active->Initialize();
+        }
+    }
+    InvalidateAll();
+}
+
+const std::u32string &TabbedView::TabInfoLine(size_t idxTab) const {
+    static const std::u32string none;
+    return (idxTab < tabs.size()) ? tabs[idxTab].infoLine : none;
 }
 
 const std::u32string &TabbedView::TabLabel(size_t idxTab) const {
@@ -260,25 +300,44 @@ void TabbedView::ReInitView() {
 }
 
 void TabbedView::DrawViewContents() {
-    if (!IsTabRowVisible()) {
+    if (!IsTabRowVisible() && !HasInfoLine()) {
         return;
     }
     auto &dc = window->GetContentDC();
     dc.ResetDrawColors();
     auto &uiColors = UIHost::Instance().GetUIColors();
-    if (IsActive()) {
-        dc.SetColor(uiColors["header_active_foreground"], uiColors["header_active_background"]);
-    } else {
-        dc.SetColor(uiColors["header_foreground"], uiColors["header_background"]);
+    auto foreground = IsActive() ? uiColors["header_active_foreground"] : uiColors["header_foreground"];
+    auto background = IsActive() ? uiColors["header_active_background"] : uiColors["header_background"];
+    if (HasInfoLine()) {
+        auto &tab = tabs[activeTab.value()];
+        int y = IsTabRowVisible() ? 1 : 0;
+        auto infoColor = tab.markColorKey.empty() ? foreground
+                       : (uiColors.HasColor(tab.markColorKey) ? uiColors[tab.markColorKey] : tab.markFallback);
+        dc.SetColor(infoColor, background);
+        dc.FillLine(y, kTextAttributes::kNormal, ' ');
+        dc.DrawStringWithAttributesAt(1, y, kTextAttributes::kNormal, tab.infoLine.c_str());
     }
+    if (!IsTabRowVisible()) {
+        return;
+    }
+    dc.SetColor(foreground, background);
     dc.FillLine(0, kTextAttributes::kNormal, ' ');
     auto spans = LayoutTabRow(Labels());
     for (auto &span : spans) {
+        auto &tab = tabs[span.idxTab];
         if (span.idxTab > 0) {
+            dc.SetColor(foreground, background);
             dc.DrawStringWithAttributesAt(span.xStart - (int)SEPARATOR.size(), 0, kTextAttributes::kNormal, SEPARATOR.c_str());
         }
         auto attributes = (activeTab == span.idxTab) ? kTextAttributes::kUnderline : kTextAttributes::kNormal;
-        dc.DrawStringWithAttributesAt(span.xStart, 0, attributes, tabs[span.idxTab].label.c_str());
+        if (!tab.markColorKey.empty()) {
+            auto markColor = uiColors.HasColor(tab.markColorKey) ? uiColors[tab.markColorKey] : tab.markFallback;
+            dc.SetColor(markColor, background);
+            attributes = attributes | kTextAttributes::kBold;
+        } else {
+            dc.SetColor(foreground, background);
+        }
+        dc.DrawStringWithAttributesAt(span.xStart, 0, attributes, tab.label.c_str());
     }
 }
 
@@ -300,11 +359,20 @@ void TabbedView::LayoutTabs() {
 
 Rect TabbedView::TabContentRect() {
     auto rect = GetContentRect();
-    if (IsTabRowVisible() && (rect.Height() > 1)) {
-        rect.MoveTo(rect.TopLeft().x, rect.TopLeft().y + 1);
-        rect.SetHeight(rect.Height() - 1);
+    // The tab row, then the shown tab's info line - each only while the view keeps a row of its own
+    int rowsAbove = (IsTabRowVisible() ? 1 : 0) + (HasInfoLine() ? 1 : 0);
+    while ((rowsAbove > 0) && (rect.Height() <= rowsAbove)) {
+        rowsAbove--;
+    }
+    if (rowsAbove > 0) {
+        rect.MoveTo(rect.TopLeft().x, rect.TopLeft().y + rowsAbove);
+        rect.SetHeight(rect.Height() - rowsAbove);
     }
     return rect;
+}
+
+bool TabbedView::HasInfoLine() const {
+    return activeTab.has_value() && !tabs[activeTab.value()].infoLine.empty();
 }
 
 std::vector<std::u32string> TabbedView::Labels() const {

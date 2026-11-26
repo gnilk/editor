@@ -293,6 +293,9 @@ namespace {
         // A line's number with a build error / warning (docs/build-messages.md §2)
         {"gutter_error",             {"editorError.foreground", "editorOverviewRuler.errorForeground", "list.errorForeground", "errorForeground"}, "gutter_deleted"},
         {"gutter_warning",           {"editorWarning.foreground", "editorOverviewRuler.warningForeground", "list.warningForeground"}, "tree_modified"},
+        // The Editor Agent's tab label (agent-integration.md §6.2) - a colour no other tab has; left out when the theme
+        // has neither (the panel uses a violet of its own)
+        {"tab_editor_agent",         {"terminal.ansiMagenta", "charts.purple"}, nullptr},
     };
     const std::vector<MappedKey> sublimeUIKeys = {
         {"background",               {"background"}, nullptr},

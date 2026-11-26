@@ -1118,7 +1118,34 @@ fed from `BuildMessages::LineMarks` as the gutter is, in `gutter_error` / `gutte
 Low priority - the Messages tab is what gets used for this; the minimap is small.
 
 
-## 19. The panel on the right (not scheduled)
+## 19. The panel on the right (hitlist #77 - built on `feature/layout-right-panel` 2026-11-23/24, for review)
+
+**Status (2026-11-24).** Built as below: `main.layout` (default `portrait`), `auto` = the window wider than 3:2 (cells taken
+as 1:2) - at start-up, and while running with a 0.1 margin either side so a window dragged across the line switches once.
+**While running:** `PanelHost` (`src/Core/Editor/Views/`) owns both panels and the split; a switch hands the tab views from
+one panel to the other (`TabbedView::TakeTab` - nothing closes, a running `claude` goes on) and swaps the status split's
+upper part. `auto`'s switch runs from `RootView`'s resize hook **before** the tree below the root is laid out: posted after
+it (the first try), the old layout was laid out at the new size first - the right panel squeezed to 5 columns cut the
+terminal's lines, and its divider was clamped to the edge. `.layout [portrait | landscape | auto]` switches for this run
+(`main.layout` is the start); `.panel move` sends the focused panel's shown tab to the other one, its home with it (in
+portrait only the home changes). The views can change parent now: `ViewBase::AddView` takes a view from the parent it
+had, the splits let the old child go, `RootView::RemoveTopView`. `PanelLayout` (`src/Core/Editor/Views/`) plans which tab goes where from the session or
+`panel.tabs` / `panel_right.tabs` - plain data, tested (`test_panellayout`); `main.cpp` builds the right column
+(`VSplitView` `split.panel_right`, the editor 3/5) and registers it as the `glbTerminalRightView` top view. Decisions taken
+without the user, to review:
+- **Focus:** no new key - `Opt/Alt+T` from outside the panels goes to the one focused last (the bottom at start), and in one
+  panel to the other. With no right panel it is today's.
+- **Session:** one tab list, each tab with its `home` (not a `terminal_right` list); the shown tab per panel by id
+  (`activeTabId`, `activeTabIdRight` - optional, since `""` is the first tab's id); the old `activeTab` index is still
+  written and read for a session from before. A portrait run keeps `activeTabIdRight` for the next landscape start.
+- **Ids are unique over both panels** (they name the scrollback / history files): each panel asks both for the ids in use.
+- **The right panel keeps its last tab** (as the bottom keeps its last terminal) - hiding an empty panel is "later".
+- **The output console** is the bottom panel's terminal at start-up (`Editor::RegisterPanelOutputConsole` after the tree
+  is initialized - before, the terminal that started last had it); a terminal used later still takes it, as before.
+- **Messages:** `Cmd/Ctrl+F8` looks in the bottom panel first, then the right.
+- **The default bottom Shell takes the first id** when only `panel_right` is configured (else it was 'Shell 2').
+Not done: dragging a tab between the panels, the bottom panel hidden when empty, maximise height in the right panel.
+
 
 Filed 2026-11-21 (the user). Monitors are wide; the lower panel takes height from the editor and gives the terminal few
 rows. Running an agent in the panel (`agentic-questions.md`) is mostly reading a long scrollback - the reason Claude Code is

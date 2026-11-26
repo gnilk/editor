@@ -15,6 +15,10 @@ using namespace gedit;
 static const char *glbDirName = "goatedit";
 
 std::filesystem::path InstallPaths::ExecutableDir() {
+    return ExecutablePath().parent_path();
+}
+
+std::filesystem::path InstallPaths::ExecutablePath() {
     std::error_code ec;
 #if defined(GEDIT_LINUX)
     auto exePath = std::filesystem::read_symlink("/proc/self/exe", ec);
@@ -35,7 +39,7 @@ std::filesystem::path InstallPaths::ExecutableDir() {
 #else
     std::filesystem::path exePath;
 #endif
-    return exePath.parent_path();
+    return exePath;
 }
 
 std::vector<std::filesystem::path> InstallPaths::SystemAssetCandidates(const std::filesystem::path &exeDir,

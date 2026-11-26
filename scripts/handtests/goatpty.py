@@ -317,21 +317,32 @@ class Goat:
         return False
 
     def kill(self):
-        if not self.reap():
+        is_reaped = self.reap()
+        if not is_reaped:
             try:
                 os.kill(self.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
-            try:
-                os.waitpid(self.pid, 0)
-            except ChildProcessError:
-                pass
+        # Closed before the wait: on macOS a killed process doesn't finish exiting while its pty has output nobody read
         try:
             os.close(self.fd)
         except OSError:
             pass
+        if not is_reaped:
+            try:
+                os.waitpid(self.pid, 0)
+            except ChildProcessError:
+                pass
 
     # --- editor helpers
+    def resize(self, rows, cols, wait=1.0):
+        """The terminal window changes size: the pty's size, SIGWINCH, and a fresh screen to read the redraw into"""
+        self.rows, self.cols = rows, cols
+        fcntl.ioctl(self.fd, termios.TIOCSWINSZ, struct.pack('HHHH', rows, cols, 0, 0))
+        os.kill(self.pid, signal.SIGWINCH)
+        self.screen = Screen(rows, cols)
+        self.pump(wait)
+
     def status_line(self):
         for r in range(self.rows):
             t = self.screen.text(r)
@@ -358,8 +369,9 @@ class Goat:
         self.send(ENTER, wait)
 
     def quit(self, timeout=5.0):
+        """True: gone, and not by a crash - that used to pass unnoticed (open-bugs #37)"""
         self.quick('.q!', 0.2)
-        return self.wait_exit(timeout)
+        return self.wait_exit(timeout) and self.status == 0
 
     def stderr(self):
         try:

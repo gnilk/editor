@@ -22,6 +22,30 @@ void TerminalAPIWrapper::RegisterModule(duk_context *ctx) {
     dukglue_register_method_varargs(ctx, &TerminalAPIWrapper::OpenLastOutputAsDocument, "OpenLastOutputAsDocument");
     dukglue_register_method_varargs(ctx, &TerminalAPIWrapper::CopyLastOutputToClipboard, "CopyLastOutputToClipboard");
     dukglue_register_method_varargs(ctx, &TerminalAPIWrapper::GetMessages, "GetMessages");
+    dukglue_register_method_varargs(ctx, &TerminalAPIWrapper::GetLayout, "GetLayout");
+    dukglue_register_method_varargs(ctx, &TerminalAPIWrapper::SetLayout, "SetLayout");
+    dukglue_register_method_varargs(ctx, &TerminalAPIWrapper::MoveTab, "MoveTab");
+}
+
+duk_ret_t TerminalAPIWrapper::GetLayout(duk_context *ctx) {
+    auto terminalApi = Editor::Instance().GetGlobalAPIObject<TerminalAPI>();
+    auto layout = (terminalApi != nullptr) ? terminalApi->GetLayout() : std::string();
+    duk_push_string(ctx, layout.c_str());
+    return 1;
+}
+
+duk_ret_t TerminalAPIWrapper::SetLayout(duk_context *ctx) {
+    auto terminalApi = Editor::Instance().GetGlobalAPIObject<TerminalAPI>();
+    auto setting = (duk_get_top(ctx) > 0) && duk_is_string(ctx, 0) ? std::string(duk_get_string(ctx, 0)) : std::string();
+    duk_push_boolean(ctx, (terminalApi != nullptr) && terminalApi->SetLayout(setting));
+    return 1;
+}
+
+duk_ret_t TerminalAPIWrapper::MoveTab(duk_context *ctx) {
+    auto terminalApi = Editor::Instance().GetGlobalAPIObject<TerminalAPI>();
+    auto message = (terminalApi != nullptr) ? terminalApi->MoveTab() : std::string("No panels");
+    duk_push_string(ctx, message.c_str());
+    return 1;
 }
 
 duk_ret_t TerminalAPIWrapper::GetLastOutput(duk_context *ctx) {

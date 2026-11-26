@@ -450,12 +450,7 @@ namespace gedit {
                 rootNode->SetNodePath(rootPath);
             }
             virtual ~ProjectRoot() {
-                if (repoMonitor != nullptr) {
-                    repoMonitor->Stop();
-                }
-                if (monitor != nullptr) {
-                    monitor->Stop();
-                }
+                StopMonitors();
             }
 
             static Ref Create(ReconcileDelegate reconcileHandler,
@@ -501,6 +496,16 @@ namespace gedit {
             // Also told about the dirty folders, whatever the tree holds (the code index has every folder)
             void SetDirtyFoldersHandler(FolderMonitor::MonitorPoint::DirtyDelegate newHandler) {
                 funcDirtyFolders = std::move(newHandler);
+            }
+
+            // Nothing more is posted once this returns - a callback that is already running is waited for
+            void StopMonitors() {
+                if (repoMonitor != nullptr) {
+                    repoMonitor->Stop();
+                }
+                if (monitor != nullptr) {
+                    monitor->Stop();
+                }
             }
 
             // Takes ownership of 'newMonitor' and starts it. Dirty folders come back through 'postToMain'.
@@ -639,6 +644,13 @@ namespace gedit {
         void SetFolderMonitor(MonitorFactory factory, FolderMonitor::MonitorPoint::PostDelegate postToMain) {
             monitorFactory = std::move(factory);
             monitorPostToMain = std::move(postToMain);
+        }
+
+        // At quit, while what the monitors' threads post to is still there. The roots keep their trees.
+        void StopMonitors() {
+            for (auto &root : projectRoots) {
+                root->StopMonitors();
+            }
         }
 
         // Change-set glue, set by the Editor: 'factory' makes a repository monitor for a root folder (nullptr when

@@ -11,7 +11,9 @@ know, or would have missed?* Yes - worth building a view. Noise - we learned tha
 
 **Tools outside the editor are fine** (`agentic-features.md` Status): the editor writes X, a tool makes Z, the editor shows Z.
 Probes are Python in `scripts/explore/`, every intermediate format readable - by a person and by an agent - so each step can
-be checked on its own.
+be checked on its own. **2026-11-24:** the two that earned a yes ship with the editor now, as the tools behind `.ask why`
+and `.ask structure` (`agent-integration.md` §6.4): `Assets/Resources/Tools/why.py` and `typediff.py` (branch point ->
+work tree by default, over `goatedit --dump`; the merges mode of §3.1 is `--merges`).
 
 ---
 

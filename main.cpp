@@ -289,6 +289,7 @@
 #include "Core/Editor/Views/HexView.h"
 #include "Core/Editor/Views/EditorViewContainer.h"
 #include "Core/UI/Views/RootView.h"
+#include "Core/Editor/Views/PanelHost.h"
 #include "Core/Editor/Views/PanelView.h"
 #include "Core/Session/SessionManager.h"
 #include "Core/UI/Views/HSplitView.h"
@@ -389,6 +390,9 @@ int main(int argc, const char **argv) {
     if (Editor::Instance().IsThemeImportRequested()) {
         return Editor::Instance().ImportTheme() ? 0 : 1;
     }
+    if (Editor::Instance().IsStructureDumpRequested()) {
+        return Editor::Instance().DumpStructure() ? 0 : 1;
+    }
     Editor::Instance().OpenScreen();
 
 
@@ -439,17 +443,19 @@ int main(int argc, const char **argv) {
     //  |                                           |
     //  |             2) CmdView                    |
     //  |                                           |
+    //
+    // Landscape with right-homed tabs (main.layout, hitlist #77): the upper part is VSplitView[ the above | right panel ]
     RootView rootView;
 
     HSplitViewStatus hSplitViewStatus;
     rootView.AddView(&hSplitViewStatus);
 
 
-    // The lower panel: terminals in tabs (docs/panel-tabs.md, hitlist #53) - the ones the session had, or one; the tab
-    // row shows from two
-    auto panelView = PanelView();
-    panelView.RestoreTabs(SessionManager::Instance().CurrentSession().terminal);
-    hSplitViewStatus.SetLower(&panelView);
+    // The panels: terminals in tabs (docs/panel-tabs.md, hitlist #53) - the ones the session had, else the configured
+    // ones, else one; the tab row shows from two. Landscape (hitlist #77, main.layout) puts the tabs whose home is the
+    // right on a full-height panel there; portrait - or no such tab - is one panel at the bottom. Built below, once the
+    // workspace and editor part exists.
+    PanelHost panelHost;
 
     auto vStackViewEditor = VStackView();   // This is where the editor and the 'FileHeader' lives, they are stacked vertically
     auto editorHeaderView = EditorHeaderView();
@@ -519,7 +525,14 @@ int main(int argc, const char **argv) {
     vStackViewEditor.AddSubView(&hStackViewEditor, kFill);
 
 
-    hSplitViewStatus.SetUpper(&vSplitViewUpper);
+    // The bottom panel under the status line; in landscape the right one beside the workspace and editor, full height
+    PanelHost::Parts panelParts;
+    panelParts.rootView = &rootView;
+    panelParts.statusSplit = &hSplitViewStatus;
+    panelParts.editorArea = &vSplitViewUpper;
+    panelHost.Build(panelParts, SessionManager::Instance().CurrentSession().terminal, Config::Instance(),
+                    Config::Instance()["main"].GetStr("layout", "portrait"), dimensions);
+    Editor::Instance().SetPanelHost(&panelHost);
     hSplitViewStatus.SetInitialSplitterRatio(0.75f);    // editor gets 3/4, terminal 1/4
     // Stable session id so the editor|terminal divide round-trips through the session cache (§4.1).
     hSplitViewStatus.SetSessionId("split.terminal");
@@ -529,7 +542,7 @@ int main(int argc, const char **argv) {
     // item (text or hex) is active, so the rest of the app talks to one stable top view across a swap.
     rootView.AddTopView(&editorViewContainer, glbEditorView);
     // The container is the top view for the lower panel: Option/Alt+T goes to it, it shows its last tab
-    rootView.AddTopView(&panelView, glbTerminalView);
+    panelHost.RegisterTopViews();
     rootView.AddTopView(&workspaceExplorer, glbWorkSpaceView);
 
 //    WorkspaceView workspaceView;
@@ -545,6 +558,8 @@ int main(int argc, const char **argv) {
     rootView.Initialize();
     rootView.InvalidateAll();
 
+    // Each terminal claims the output when it starts - the banner and dot-command output go to the bottom panel's
+    Editor::Instance().RegisterPanelOutputConsole();
     Editor::Instance().RunPostInitalizationScript();
 
     // No document was given on startup - so let's focus in the ProjectView...

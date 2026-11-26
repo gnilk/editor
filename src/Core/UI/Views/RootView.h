@@ -6,6 +6,7 @@
 #define GEDIT_ROOTVIEW_H
 
 #include <algorithm>
+#include <functional>
 #include <vector>
 
 #include "logger.h"
@@ -38,6 +39,9 @@ namespace gedit {
             // Modals aren't subviews - re-centre them on the new screen
             for (auto &modal : modals) {
                 modal->Resize();
+            }
+            if (screenResizedHandler) {
+                screenResizedHandler(viewRect);
             }
         }
 
@@ -113,6 +117,37 @@ namespace gedit {
                     TopView()->SetActive(true);
                 }
             }
+        }
+
+        // Not a top view any more (its place left the tree). Focus goes to the first top view when it had it.
+        void RemoveTopView(const std::string &name) {
+            auto it = std::find_if(topViews.begin(), topViews.end(), [&name](const TopViewInstance &t) {
+                return t.name == name;
+            });
+            if (it == topViews.end()) {
+                return;
+            }
+            auto idxRemoved = (int)(it - topViews.begin());
+            auto wasCurrent = (idxRemoved == idxCurrentTopView);
+            if (wasCurrent) {
+                it->view->SetActive(false);
+            }
+            topViews.erase(it);
+            if (topViews.empty()) {
+                idxCurrentTopView = -1;
+            } else if (wasCurrent) {
+                idxCurrentTopView = 0;
+                TopView()->SetActive(true);
+            } else if (idxRemoved < idxCurrentTopView) {
+                idxCurrentTopView--;
+            }
+        }
+
+        // Called when the screen changed size (the window was resized), before anything below the root is laid out for
+        // it: a handler may change the tree below the root (a layout switch) and the new tree is what gets laid out -
+        // the old one never sees the new size (squeezed, a terminal's lines would be cut and a splitter clamped)
+        void SetScreenResizedHandler(std::function<void(const Rect &dimensions)> handler) {
+            screenResizedHandler = std::move(handler);
         }
 
         const std::vector<std::string> GetTopViews() {
@@ -445,6 +480,7 @@ namespace gedit {
         kPointerShape shownPointerShape = kPointerShape::kDefault;
         int lastMouseX = -1;                    // the cell the pointer was last reported in
         int lastMouseY = -1;
+        std::function<void(const Rect &dimensions)> screenResizedHandler = {};
     };
 }
 

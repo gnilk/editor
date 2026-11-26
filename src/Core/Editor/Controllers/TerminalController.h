@@ -11,6 +11,7 @@
 #include <mutex>
 #include <filesystem>
 #include <optional>
+#include <atomic>
 #include <chrono>
 #include <thread>
 #include <condition_variable>
@@ -68,7 +69,10 @@ namespace gedit {
         void CommitLine();
         int GetCursorXPos();
 
-        bool DoesShellOwnLineEditing() const { return doesShellOwnLineEditing; }
+        bool DoesShellOwnLineEditing() const { return doesShellOwnLineEditing && !isShellEnded; }
+        // The shell ended by itself (hitlist #82) - the panel says so, and Enter starts a new one
+        // ('enter_restarts_shell', on unless the settings say no: the Editor Agent's tab)
+        bool IsShellEnded() const { return isShellEnded; }
 
         // An application owns the terminal: a full-screen app on the alternate screen, or any job in the foreground
         // (dialog, python, ssh, sleep, ...: the pty's foreground process group is not the shell's). Then every key
@@ -96,6 +100,13 @@ namespace gedit {
                           uint8_t modifiers);
         // The terminal's modes (DECCKM, bracketed paste, mouse, ...) - a copy taken under screenLock
         gnilk::vt::Modes GetModes();
+        // The app has settled down (agent-integration.md §6.3): it reads a paste (?2004 on) and nothing has come from
+        // the pty for 'quietTime'. Whether an app runs at all is HasRunningJob's - a shell's prompt reads pastes too.
+        bool IsSettled(std::chrono::milliseconds quietTime);
+        // When the pty last gave output (steady clock); the epoch before any
+        std::chrono::steady_clock::time_point LastOutputAt();
+        // The view has the keyboard (SetFocus)
+        bool HasFocus() const { return hasFocus; }
 
         // Test seams: where pty bytes go (default: the shell), and the foreground-job probe (default:
         // Shell::IsForegroundJobRunning)
@@ -135,8 +146,13 @@ namespace gedit {
         // the IOutputConsole the JS Console/Terminal surfaces route to. IOutputConsole is a PRIVATE base
         // (external code reaches it only through RuntimeConfig, never via TerminalController*), so the
         // upcast must happen in here. Called from Begin(); exposed so a test can wire a controller up
-        // without starting a real shell.
-        void RegisterAsOutputConsole() { RuntimeConfig::Instance().SetOutputConsole(this); }
+        // without starting a real shell. A terminal whose settings say 'output_console: no' never is one (the Editor
+        // Agent's tab - dot-command output must not land in an agent's input).
+        void RegisterAsOutputConsole() {
+            if (settings.GetBool("output_console", true)) {
+                RuntimeConfig::Instance().SetOutputConsole(this);
+            }
+        }
 
         // IOutputConsole: the last command's output joined with '\n', or nullopt when there is none. Takes
         // screenLock - safe from the JS/main thread while the pty thread writes.
@@ -176,6 +192,10 @@ namespace gedit {
         void OnTitle(std::string_view newTitle) override;
 
     protected:
+        // The shell with the settings' bootstrap - the first one, or a new one after it ended
+        void StartShell();
+        void RestartShell();
+        void OnShellEnded();
         void SyncInputLineFromGrid();
         void EnterShellOwned();
         bool HandCtrlKeyToShell(const KeyPress &keyPress);
@@ -203,6 +223,8 @@ namespace gedit {
         // every passthrough path: an app owns the terminal, or readline owns the line. False for keys that never
         // go to the pty (Cmd combinations, keys with no encoding).
         bool ForwardKeyPressToShell(const KeyPress &keyPress);
+        static bool IsEndOfInputKey(const KeyPress &keyPress);
+        bool IsShellOwnedLineEmpty();
 
         void RequestRedraw();
         // One redraw at 'deadline' - the end of a synchronized update the app never ended - on the timer thread
@@ -246,6 +268,9 @@ namespace gedit {
 
         TerminalScreen screen;
         std::mutex screenLock;
+        // Under screenLock
+        std::chrono::steady_clock::time_point lastOutputAt = {};
+        std::atomic<bool> hasFocus = false;
 
         std::function<void(std::string_view)> ptyWriter;
         std::function<bool()> foregroundJobProbe;
@@ -281,6 +306,8 @@ namespace gedit {
 #else
         bool isAltArrowsAsWords = false;
 #endif
+        // Set on the pty thread when the shell ends by itself, cleared on the UI thread by RestartShell
+        std::atomic<bool> isShellEnded = false;
         // Where the prompt ends, captured on the local->shell-owned transition (the real grid cursor
         // stays parked there while editing locally, since local edits never touch the grid). Used to
         // read the line back. The row is an abs id (TerminalScreen::AbsRowCount), so it follows the

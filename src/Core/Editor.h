@@ -28,6 +28,9 @@
 #include "Core/Workspace.h"
 #include "Core/TypeUtil.h"
 #include "Core/Editor/Controllers/QuickCommandController.h"
+#include "Core/Editor/Views/PanelHost.h"
+#include "Core/Agent/AgentIntegration.h"
+#include "Core/Editor/AgentAsk.h"
 #include "Core/KeyMapping.h"
 #include "Core/Theme/Theme.h"
 #include "ClipBoard.h"
@@ -38,7 +41,8 @@ namespace gedit {
     // Global class names for top-views in the view hierarchy...
     //
     static inline const std::string glbWorkSpaceView = "WorkspaceView";
-    static inline const std::string glbTerminalView = "TerminalView";
+    static inline const std::string glbTerminalView = "TerminalView";          // the bottom panel
+    static inline const std::string glbTerminalRightView = "TerminalViewRight"; // the right panel (landscape, hitlist #77)
     static inline const std::string glbEditorView = "EditorView";
 
     //
@@ -226,6 +230,56 @@ namespace gedit {
         // Cmd/Ctrl+F8 with a Messages tab in the lower panel (panel-tabs.md step 5): shows it, focused; false when there is none
         bool ShowMessagesTab();
         bool PromoteToTerminal(const std::u32string &text);
+        // The panel that had focus last (a top view name) - Option/Alt+T goes back to it from outside the panels
+        void NotePanelFocused(const std::string &topViewName) {
+            lastFocusedPanel = topViewName;
+        }
+        // Dot-command output and the JS console to the bottom panel's terminal ("the terminal")
+        void RegisterPanelOutputConsole();
+        // The panels and their layout (hitlist #77) - set by main.cpp; nullptr headless
+        void SetPanelHost(PanelHost *newPanelHost) {
+            panelHost = newPanelHost;
+        }
+        // '.layout': 'portrait' | 'landscape' | 'auto' - laid out now (not saved: main.layout is); false for anything else
+        bool SetPanelLayout(const std::string &setting);
+        // The setting, and what it is now ('auto (landscape)')
+        std::string GetPanelLayout();
+        // '.panel move': the focused panel's shown tab to the other panel - a line for the user
+        std::string MovePanelTab();
+
+        // The user's agent (hitlist #78, main.ai_integration) - 'none' unless the user config names one; never null
+        AgentIntegration::Ref GetAgent() {
+            return agent;
+        }
+        // For '.agent': which one, found or not, and what would be started where - for the project root
+        std::vector<std::string> DescribeAgent();
+        // '.agent start' (agent-integration.md §6.2): the Editor Agent's tab in the bottom panel, running the agent's
+        // read-only command - the user asked, so it may start. Shown and focused; when it runs already it is only shown.
+        // A line for the user.
+        std::string StartEditorAgent();
+        // '.agent model [name]' (§6.4): the Editor Agent's model for this session - lines for the user
+        std::vector<std::string> SetEditorAgentModel(const std::string &name);
+        // '.ask <question>' (§6.3), '.ask <template> [args]' (§6.4), '.ask list': asks for consent, then puts it to the
+        // Editor Agent - lines for the user
+        std::vector<std::string> AskEditorAgent(const std::string &text);
+        AgentAsk &GetAgentAsk() {
+            return agentAsk;
+        }
+        // The Editor Agent's tab, in whichever panel; nullptr when there is none
+        TerminalView *GetEditorAgentView();
+        // A new Editor Agent tab in the bottom panel; shown and focused only when 'isShown' (a question doesn't pull
+        // the user there). nullptr without a bottom panel.
+        TerminalView *AddEditorAgentTab(const ConfigNode &settings, const std::string &banner, bool isShown);
+        // Its tab goes, the agent with it - nothing is asked. True when it was the shown tab.
+        bool RemoveEditorAgentTab();
+        // Its tab to front - the focus stays where it is
+        void RaiseEditorAgentTab();
+        // Its tab to front, its panel focused
+        void ShowEditorAgentTab();
+        // The line under its tab row (TabbedView's info line)
+        void SetEditorAgentInfoLine(const std::u32string &line);
+        // The project's root: the folder given at launch (a project), else the working directory
+        std::filesystem::path GetProjectRootPath();
 
         const Theme::Ref GetTheme() {
             return theme;
@@ -274,6 +328,12 @@ namespace gedit {
             return !importThemeFile.empty();
         }
         bool ImportTheme();
+        // '--dump <file-or-folder>': print the C/C++ structure (symbols + edges) and quit - what the shipped typediff
+        // tool reads (agent-integration.md §6.4, the start of hitlist #74); no screen is opened
+        bool IsStructureDumpRequested() const {
+            return !dumpPath.empty();
+        }
+        bool DumpStructure();
     protected:
         bool OpenDocumentOrFolder(const std::string &fileOrFolder);
 
@@ -332,6 +392,10 @@ namespace gedit {
     private:
         Editor() = default;
         ~Editor();
+        // Option/Alt+T: from outside the panels the one focused last; in one, the other (when there are two)
+        std::string PanelToFocus();
+        // main.ai_integration -> the agent; an unknown name is 'none' and a start-up notice
+        void ConfigureAgent();
     private:
         bool isInitialized = false;
         gnilk::ILogger *logger = nullptr;
@@ -343,11 +407,16 @@ namespace gedit {
         std::string argBackend;
         bool isProjectLaunch = false;       // exactly one folder argument (IsProjectLaunch, at Initialize)
         bool isStartedFromUI = false;       // launched from the desktop (TakeStartedFromUI, at Initialize)
+        std::string lastFocusedPanel = glbTerminalView;
+        PanelHost *panelHost = nullptr;
+        AgentIntegration::Ref agent = {};
+        AgentAsk agentAsk;
         std::filesystem::path argAssetDir;  // '--asset-dir', replaces the system asset lookup when set
         std::vector<std::string> pendingFiles;
         std::string importThemeFile;
         std::string importThemeName;        // '--name', default: from the theme's own name
         bool isImportThemeForced = false;   // '--force' - overwrite an earlier import
+        std::filesystem::path dumpPath;      // '--dump <file-or-folder>'
 
         Theme::Ref theme = nullptr;
         StartupNotices startupNotices;

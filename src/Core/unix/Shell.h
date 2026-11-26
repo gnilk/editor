@@ -64,6 +64,13 @@ namespace gedit {
             onOutput = handler;
         }
 
+        // The shell ended by itself (exit, killed) - not through Close(). Called once on the pty thread, in state
+        // kTerminated, after the last output. Close() and then Begin() start a new one.
+        using ExitDelegate = std::function<void()>;
+        void SetExitDelegate(ExitDelegate handler) {
+            onExit = std::move(handler);
+        }
+
         // Written by the pty thread, polled by the UI thread - must be atomic or an optimised build may
         // hoist the load out of a wait loop and spin forever.
         State GetState() const {
@@ -72,7 +79,13 @@ namespace gedit {
 
     private:
         void ConsumePty();
+        // Hang up (the foreground job's process group too), wait, then SIGKILL - bounded: a child that can't be reaped is
+        // left behind, never waited for (Close() runs on the UI thread)
         void ReapChild();
+        // The shell's pid when it was reaped within 'timeoutMs', 0 when it is still there, -1 on an error
+        pid_t WaitForChild(int &status, int timeoutMs);
+        // In the forked child: every fd but stdin/out/err closed - the editor's files, other tabs' pty masters
+        static void CloseInheritedFds();
         void WakeReader();
         bool StartShellProc(const std::string &shell, const std::string &shellInitStr);
         void SendInitScript(const std::vector<std::string> &initScript);
@@ -97,6 +110,8 @@ namespace gedit {
 
         gnilk::Logger::ILogger *logger = nullptr;
 
+        static constexpr long MAX_FD_TO_CLOSE = 65536;
+
         int      amaster   = -1;   // pty master — single fd for all shell I/O
         pid_t    pid       = -1;
         int      exitStatus = 0;
@@ -105,6 +120,7 @@ namespace gedit {
         int      wakeFds[2] = { -1, -1 };   // Close() writes to [1] so the reader's poll() returns at once
 
         OutputDelegate onOutput = nullptr;
+        ExitDelegate onExit = nullptr;
     };
 }
 

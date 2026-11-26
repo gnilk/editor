@@ -13,6 +13,8 @@
 #endif
 
 #include <termios.h>
+#include <unistd.h>
+#include <sys/wait.h>
 #include <sys/ioctl.h>
 #include <thread>
 #include <chrono>
@@ -51,6 +53,8 @@ bool Shell::Begin(const std::string &shell, const std::string &args,
         logger->Error("Begin: the shell is already started");
         return false;
     }
+    // Not the last one's kTerminated - whoever waits for kRunning would take it for this one's
+    ChangeState(State::kIdle);
     if (!StartShellProc(shell, args)) {
         return false;
     }
@@ -73,7 +77,10 @@ bool Shell::StartShellProc(const std::string &configuredShell, const std::string
     pid = forkpty(&amaster, NULL, NULL, NULL);
 
     if (pid > 0) {
-        // Parent — amaster is the only fd we need
+        // Parent — amaster is the only fd we need. Never inherited: a shell started later (another tab) holding this
+        // master keeps the pty open after we close it - no hangup reaches this shell's jobs, and a dying shell waits
+        // in the kernel for ever (open-bugs #36: quit hung with agent tabs)
+        ::fcntl(amaster, F_SETFD, FD_CLOEXEC);
         logger->Debug("Started child with pid=%d", pid);
         if ((wakeFds[0] < 0) && (::pipe(wakeFds) == 0)) {
             ::fcntl(wakeFds[0], F_SETFD, FD_CLOEXEC);
@@ -87,6 +94,9 @@ bool Shell::StartShellProc(const std::string &configuredShell, const std::string
         // Set TERM so ncurses-based programs (less, vi, ...) find their
         // terminfo entry and know the terminal is capable.
         ::setenv("TERM", "xterm-256color", 1);
+        // Nothing of the editor's but the pty: other tabs' masters (one forked between their forkpty and their
+        // FD_CLOEXEC), files, pipes
+        CloseInheritedFds();
         ::execl(shell.c_str(), shell.c_str(), shellInitStr.c_str(), nullptr);
         exit(EXIT_SUCCESS);
     } else {
@@ -168,7 +178,8 @@ bool Shell::IsForegroundJobRunning() const {
 }
 
 std::string Shell::GetWorkingDirectory() const {
-    if (pid <= 0) {
+    // An ended shell's pid can be another process by now
+    if ((pid <= 0) || (GetState() == State::kTerminated)) {
         return {};
     }
 #if defined(GEDIT_MACOS)
@@ -224,24 +235,54 @@ void Shell::CleanUp() {
 // hangup) waits in the kernel for it to drain - SIGKILL doesn't end that wait, and waitpid never returned.
 void Shell::ReapChild() {
     static constexpr int kGraceMs = 500;
+    static constexpr int kKilledGraceMs = 1000;
     if (GetState() == State::kTerminate) {
+        // The job in front (an agent, an editor) has its own process group - it gets the hangup too, as a closing
+        // terminal gives it
+        auto foreground = (amaster >= 0) ? tcgetpgrp(amaster) : -1;
+        if ((foreground > 0) && (foreground != pid)) {
+            kill(-foreground, SIGHUP);
+        }
         kill(pid, SIGHUP);
         CleanUp();
     }
     int status = 0;
-    pid_t reaped = 0;
-    auto tEnd = std::chrono::steady_clock::now() + std::chrono::milliseconds(kGraceMs);
-    while ((reaped = waitpid(pid, &status, WNOHANG)) == 0) {
-        if (std::chrono::steady_clock::now() >= tEnd) {
-            logger->Warning("Shell pid=%d didn't exit on hangup - killing it", pid);
-            kill(pid, SIGKILL);
-            reaped = waitpid(pid, &status, 0);
-            break;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    auto reaped = WaitForChild(status, kGraceMs);
+    if (reaped == 0) {
+        logger->Warning("Shell pid=%d didn't exit on hangup - killing it", pid);
+        kill(pid, SIGKILL);
+        reaped = WaitForChild(status, kKilledGraceMs);
+    }
+    if (reaped == 0) {
+        // Stuck in the kernel (a tty it can't let go of): left behind rather than hang the UI thread that joins us
+        logger->Error("Shell pid=%d didn't go on SIGKILL either - left behind", pid);
+        return;
     }
     if ((reaped == pid) && WIFEXITED(status)) {
         exitStatus = WEXITSTATUS(status);
+    }
+}
+
+pid_t Shell::WaitForChild(int &status, int timeoutMs) {
+    auto tEnd = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+    pid_t reaped = 0;
+    while ((reaped = waitpid(pid, &status, WNOHANG)) == 0) {
+        if (std::chrono::steady_clock::now() >= tEnd) {
+            return 0;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    return reaped;
+}
+
+void Shell::CloseInheritedFds() {
+    // In the child, before exec: only close() - async-signal-safe after fork in a threaded process
+    auto maxFd = sysconf(_SC_OPEN_MAX);
+    if ((maxFd < 0) || (maxFd > MAX_FD_TO_CLOSE)) {
+        maxFd = MAX_FD_TO_CLOSE;
+    }
+    for (int fd = STDERR_FILENO + 1; fd < (int)maxFd; fd++) {
+        ::close(fd);
     }
 }
 
@@ -303,9 +344,15 @@ void Shell::ConsumePty() {
         }
     }
 
+    bool isClosedByUs = (GetState() == State::kTerminate);
     ReapChild();
 
     logger->Debug("Leaving ConsumePty for pid=%d", pid);
     CleanUp();
+    // Close() may have come while the child was reaped
+    isClosedByUs = isClosedByUs || (GetState() == State::kTerminate);
     ChangeState(State::kTerminated);
+    if (!isClosedByUs && onExit) {
+        onExit();
+    }
 }

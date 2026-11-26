@@ -9,8 +9,9 @@
 // line is left byte-for-byte as it was.
 //
 // There is NO fallback: the patched text is re-parsed and must equal "original + this one value" exactly;
-// anything it can't place safely (flow style, a list/map at the path, tab indentation, CRLF, a file that
-// doesn't parse) is refused with an error - the caller then points the user at a manual edit.
+// anything it can't place safely (flow style, a list/map at the path, tab indentation, mixed CRLF and LF, a file that
+// doesn't parse) is refused with an error - the caller then points the user at a manual edit. A file that is all CRLF
+// (Notepad on Windows) is patched as LF and written back CRLF.
 //
 
 #ifndef EDITOR_CONFIGFILEPATCHER_H
@@ -35,6 +36,11 @@ namespace gedit {
         static Result RemoveScalar(const std::string &text, const std::vector<std::string> &keyPath);
         // 'value' as YAML: plain when that reads back unchanged, otherwise double-quoted.
         static std::string FormatScalar(const std::string &value);
+
+    private:
+        // The patches on LF text - SetScalar / RemoveScalar keep a CRLF file's endings around them
+        static Result SetScalarLF(const std::string &text, const std::vector<std::string> &keyPath, const std::string &value);
+        static Result RemoveScalarLF(const std::string &text, const std::vector<std::string> &keyPath);
     };
 }
 

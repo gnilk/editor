@@ -2,6 +2,7 @@
 // See ConfigFilePatcher.h
 //
 
+#include <functional>
 #include <algorithm>
 #include <optional>
 #include <yaml-cpp/yaml.h>
@@ -43,7 +44,59 @@ static std::optional<std::string> VerifyRemoved(const std::string &original, con
 static std::optional<std::string> CheckKeyPath(const std::string &text, const std::vector<std::string> &keyPath);
 static std::optional<std::string> AnalyzeLines(const std::vector<std::string> &lines, std::vector<LineInfo> &outInfos);
 
+// A file with CRLF line endings (Notepad on Windows) is patched as LF and written back CRLF - the file stays as it was
+// but for the line changed. Mixed endings are refused: there is no one way to write the new line.
+static ConfigFilePatcher::Result WithLineEndingsKept(const std::string &text,
+                                                     const std::function<ConfigFilePatcher::Result(const std::string &)> &patch) {
+    if (text.find('\r') == std::string::npos) {
+        return patch(text);
+    }
+    std::string lfText;
+    lfText.reserve(text.size());
+    for (size_t i = 0; i < text.size(); i++) {
+        if (text[i] == '\r') {
+            if (((i + 1) >= text.size()) || (text[i + 1] != '\n')) {
+                ConfigFilePatcher::Result mixed;
+                mixed.error = "the file has a lone CR (not CRLF)";
+                return mixed;
+            }
+            continue;
+        }
+        if ((text[i] == '\n') && ((i == 0) || (text[i - 1] != '\r'))) {
+            ConfigFilePatcher::Result mixed;
+            mixed.error = "the file has mixed line endings (CRLF and LF)";
+            return mixed;
+        }
+        lfText.push_back(text[i]);
+    }
+    auto result = patch(lfText);
+    if (result.isOk) {
+        std::string crlfText;
+        crlfText.reserve(result.text.size() + result.text.size() / 16);
+        for (auto ch : result.text) {
+            if (ch == '\n') {
+                crlfText.push_back('\r');
+            }
+            crlfText.push_back(ch);
+        }
+        result.text = std::move(crlfText);
+    }
+    return result;
+}
+
 ConfigFilePatcher::Result ConfigFilePatcher::SetScalar(const std::string &text, const std::vector<std::string> &keyPath, const std::string &value) {
+    return WithLineEndingsKept(text, [&keyPath, &value](const std::string &lfText) {
+        return SetScalarLF(lfText, keyPath, value);
+    });
+}
+
+ConfigFilePatcher::Result ConfigFilePatcher::RemoveScalar(const std::string &text, const std::vector<std::string> &keyPath) {
+    return WithLineEndingsKept(text, [&keyPath](const std::string &lfText) {
+        return RemoveScalarLF(lfText, keyPath);
+    });
+}
+
+ConfigFilePatcher::Result ConfigFilePatcher::SetScalarLF(const std::string &text, const std::vector<std::string> &keyPath, const std::string &value) {
     Result result;
     if (auto error = CheckKeyPath(text, keyPath)) {
         result.error = error.value();
@@ -183,7 +236,7 @@ ConfigFilePatcher::Result ConfigFilePatcher::SetScalar(const std::string &text, 
     return result;
 }
 
-ConfigFilePatcher::Result ConfigFilePatcher::RemoveScalar(const std::string &text, const std::vector<std::string> &keyPath) {
+ConfigFilePatcher::Result ConfigFilePatcher::RemoveScalarLF(const std::string &text, const std::vector<std::string> &keyPath) {
     Result result;
     if (auto error = CheckKeyPath(text, keyPath)) {
         result.error = error.value();
@@ -382,9 +435,6 @@ static std::optional<std::string> CheckKeyPath(const std::string &text, const st
         if (!IsPlainKey(segment)) {
             return "unsupported key '" + segment + "' (letters, digits, '_' and '-' only)";
         }
-    }
-    if (text.find('\r') != std::string::npos) {
-        return std::string("the file has CRLF line endings");
     }
     return {};
 }

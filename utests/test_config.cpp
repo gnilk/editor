@@ -41,6 +41,7 @@ DLL_EXPORT int test_config_patch_realconfig(ITesting *t);
 DLL_EXPORT int test_config_api_project_set(ITesting *t);
 DLL_EXPORT int test_config_patch_remove(ITesting *t);
 DLL_EXPORT int test_config_patch_remove_refuse(ITesting *t);
+DLL_EXPORT int test_config_patch_crlf(ITesting *t);
 DLL_EXPORT int test_config_api_project_unset(ITesting *t);
 }
 
@@ -482,7 +483,8 @@ DLL_EXPORT int test_config_patch_refuse(ITesting *t) {
     TR_ASSERT(t, !ConfigFilePatcher::SetScalar(patchFixture, {"logging", "enable_modules", "x"}, "y").isOk);  // inside a list
     TR_ASSERT(t, !ConfigFilePatcher::SetScalar(patchFixture, {"main", "theme", "x"}, "y").isOk);              // under a value
     TR_ASSERT(t, !ConfigFilePatcher::SetScalar("a: {b: 1}\n", {"a", "b"}, "2").isOk);                         // flow style
-    TR_ASSERT(t, !ConfigFilePatcher::SetScalar("a:\n  b: 1\r\n", {"a", "b"}, "2").isOk);                      // CRLF
+    TR_ASSERT(t, !ConfigFilePatcher::SetScalar("a:\n  b: 1\r\n", {"a", "b"}, "2").isOk);                      // mixed CRLF and LF
+    TR_ASSERT(t, !ConfigFilePatcher::SetScalar("a:\r  b: 1\r", {"a", "b"}, "2").isOk);                          // a lone CR
     TR_ASSERT(t, !ConfigFilePatcher::SetScalar("a:\n\tb: 1\n", {"a", "b"}, "2").isOk);                        // tabs
     TR_ASSERT(t, !ConfigFilePatcher::SetScalar("a: [\n", {"a", "b"}, "2").isOk);                              // doesn't parse
     TR_ASSERT(t, !ConfigFilePatcher::SetScalar("- a\n- b\n", {"a", "b"}, "2").isOk);                          // top-level list
@@ -648,7 +650,7 @@ DLL_EXPORT int test_config_patch_remove_refuse(ITesting *t) {
     TR_ASSERT(t, !ConfigFilePatcher::RemoveScalar(patchFixture, {"logging", "enable_modules"}).isOk);
     // Flow style, CRLF
     TR_ASSERT(t, !ConfigFilePatcher::RemoveScalar("main: { theme: x }\n", {"main", "theme"}).isOk);
-    TR_ASSERT(t, !ConfigFilePatcher::RemoveScalar("main:\r\n  theme: x\r\n", {"main", "theme"}).isOk);
+    TR_ASSERT(t, !ConfigFilePatcher::RemoveScalar("main:\r\n  theme: x\n", {"main", "theme"}).isOk);
     // A value over several lines
     TR_ASSERT(t, !ConfigFilePatcher::RemoveScalar("main:\n  text: |\n    one\n    two\n", {"main", "text"}).isOk);
     return kTR_Pass;
@@ -680,5 +682,28 @@ DLL_EXPORT int test_config_api_project_unset(ITesting *t) {
 
     Config::Instance().RemoveKey("cfgtest");
     std::filesystem::remove_all(root, ec);
+    return kTR_Pass;
+}
+
+// A config saved by Notepad (Windows) is CRLF: patched as LF, written back CRLF - only the line set changes. It was
+// refused ('the file has CRLF line endings'), so '.cfg set' couldn't touch any such file (found on Windows, 2026-11-26)
+DLL_EXPORT int test_config_patch_crlf(ITesting *t) {
+    std::string crlfFile = "# keep\r\nmain:\r\n  theme: a   # mine\r\n  tabsize: 4\r\n";
+    auto set = ConfigFilePatcher::SetScalar(crlfFile, {"main", "theme"}, "b");
+    TR_ASSERT(t, set.isOk);
+    TR_ASSERT(t, set.text == "# keep\r\nmain:\r\n  theme: b   # mine\r\n  tabsize: 4\r\n");
+    // An inserted key gets CRLF too
+    auto insert = ConfigFilePatcher::SetScalar(crlfFile, {"main", "wrap"}, "yes");
+    TR_ASSERT(t, insert.isOk);
+    TR_ASSERT(t, insert.text.find("  wrap: yes\r\n") != std::string::npos);
+    TR_ASSERT(t, insert.text.find("\n") == insert.text.find("\r\n") + 1);
+    for (size_t i = 0; i < insert.text.size(); i++) {
+        if (insert.text[i] == '\n') {
+            TR_ASSERT(t, (i > 0) && (insert.text[i - 1] == '\r'));
+        }
+    }
+    auto removed = ConfigFilePatcher::RemoveScalar(crlfFile, {"main", "tabsize"});
+    TR_ASSERT(t, removed.isOk);
+    TR_ASSERT(t, removed.text == "# keep\r\nmain:\r\n  theme: a   # mine\r\n");
     return kTR_Pass;
 }

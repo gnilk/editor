@@ -258,7 +258,8 @@ elseif(WIN32)
     list(APPEND platformsrc src/Core/windows/SystemFontsWindows.cpp)
 
     list(APPEND extlibs yaml-cpp::yaml-cpp)
-    # A console program for now - its stderr is where the early messages go. The manifest: UTF-8 as the process's code
+    # A console program - its stderr is where the early messages go, and cmd waits for it; a console Windows made for
+    # it alone (an Explorer start) is given back once the window opens (Platform::ReleaseOwnConsole). The manifest: UTF-8 as the process's code
     # page (narrow strings and paths are UTF-8, as on unix), per-monitor DPI, long paths (docs/windows-port.md §4.3)
     add_executable(${CUR_TARGET} ${appsrc} ${CMAKE_SOURCE_DIR}/Assets/CMake/goatedit.manifest)
 elseif(UNIX)

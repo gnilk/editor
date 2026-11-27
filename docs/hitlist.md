@@ -39,6 +39,12 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
     there. Without the key: no project (no `.goatedit\` made) and the terminal panel says how to make it one ("... add it (or
     'C:\src') to windows.project_folders in ...\config.yml"); a start from `C:\src\x` moves to home with the same advice.
     `goatedit C:\` never a project, and no advice
+  - [ ] Windows - **the clipboard** (§4.2 - no code change: SDL3 writes CRLF out, the paste drops the `\r`; the round trip is
+    unit tested, `clipboard -t external_roundtrip_crlf`): whole lines from the editor paste into Notepad as lines; lines
+    from Notepad paste into the editor as lines, no stray `^M`, the file's endings kept
+  - [x] Windows - **no console window**: `goatedit.exe` double-clicked in Explorer opens the window only (a console may
+    flash); started from cmd, cmd waits and the console stays with the editor's messages (`Platform::ReleaseOwnConsole`).
+    11-27: works, the flash is fine - a WinMain (no flash, but cmd no longer waits) not worth it for now
   - [ ] Windows - a clang-cl build with an error in the terminal panel (once phase 4 has a terminal) - `F8` to the line: MSVC's
     `file(12,5): error` read (unit tested on captured output)
 - **Build messages** (#52) - the terminal version scripted (`build_messages`: `cc` on a broken file, `F8` / `Shift+F8` / `Ctrl+F8`)

@@ -46,6 +46,11 @@ namespace gedit::Platform {
     // Writes 'content' so that a crash leaves either the old file or the new one, never half of it: a temp file next
     // to it, flushed to disk, then put in its place
     bool WriteFileAtomic(const std::filesystem::path &path, const std::string &content);
+
+    // The window version gives back a console that is its own and nobody else's - Windows makes one for a console
+    // program started from Explorer or a shortcut, an empty window next to the editor's. One shared with the shell that
+    // started the editor (cmd, a terminal) stays: its stderr is read there. Nothing on unix
+    void ReleaseOwnConsole();
 }
 
 #endif //GOATEDIT_PLATFORM_H

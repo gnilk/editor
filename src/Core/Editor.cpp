@@ -1407,6 +1407,8 @@ void Editor::ConfigureSubSystems() {
     }
 
     if (backend == "sdl") {
+        // A window: a console made just for it (Windows, an Explorer start) goes
+        Platform::ReleaseOwnConsole();
 #ifdef GEDIT_USE_SDL3
         logger->Debug("Starting SDL3 backend");
         SetupSDL3();

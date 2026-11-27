@@ -153,3 +153,7 @@ bool Platform::WriteFileAtomic(const std::filesystem::path &path, const std::str
     }
     return true;
 }
+
+// A unix program has no console of its own to give back - the terminal it runs in is the user's
+void Platform::ReleaseOwnConsole() {
+}

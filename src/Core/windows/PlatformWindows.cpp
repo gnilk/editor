@@ -192,3 +192,12 @@ bool Platform::WriteFileAtomic(const std::filesystem::path &path, const std::str
     DeleteFileW(tmpPath.c_str());
     return false;
 }
+
+// The console is ours alone when we are the only process on it: Windows made it for us (an Explorer start). Started
+// from cmd or a terminal, the shell is on it too - it stays, so stderr is still read there
+void Platform::ReleaseOwnConsole() {
+    DWORD processes[2];
+    if (GetConsoleProcessList(processes, 2) == 1) {
+        FreeConsole();
+    }
+}

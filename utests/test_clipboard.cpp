@@ -67,6 +67,7 @@ DLL_EXPORT int test_clipboard_copypasteexternal(ITesting *t);
 DLL_EXPORT int test_clipboard_external_roundtrip_linewise(ITesting *t);
 DLL_EXPORT int test_clipboard_external_roundtrip_charwise(ITesting *t);
 DLL_EXPORT int test_clipboard_external_trailing_newline(ITesting *t);
+DLL_EXPORT int test_clipboard_external_roundtrip_crlf(ITesting *t);
 // CopyText (literal text -> paste buffer) must fire the OnUpdate hook so it reaches the OS pasteboard.
 DLL_EXPORT int test_clipboard_copytext_notifies(ITesting *t);
 }
@@ -343,6 +344,58 @@ DLL_EXPORT int test_clipboard_external_trailing_newline(ITesting *t) {
     TR_ASSERT(t, dst->LineAt(1)->Buffer() == U"foo");
     TR_ASSERT(t, dst->LineAt(2)->Buffer() == U"bar");
     TR_ASSERT(t, dst->LineAt(3)->Buffer() == U"DST 1");           // preserved on its own line
+    return kTR_Pass;
+}
+
+// Windows (windows-port.md §4.2): SDL3's SetClipboardText turns each '\n' into '\r\n' going out and hands the text
+// back as it is - so the round trip through the Windows clipboard must read the same as through any other: whole
+// lines stay whole lines, a charwise copy still joins, and no '\r' reaches the buffer
+namespace {
+    // What SDL_windowsclipboard.c does to the text on the way out
+    std::string AsWindowsClipboard(const std::string &text) {
+        std::string out;
+        for (size_t i = 0; i < text.size(); i++) {
+            if ((text[i] == '\n') && ((i == 0) || (text[i - 1] != '\r'))) {
+                out += '\r';
+            }
+            out += text[i];
+        }
+        return out;
+    }
+}
+
+DLL_EXPORT int test_clipboard_external_roundtrip_crlf(ITesting *t) {
+    auto src = MakeNumberedBuffer("line", 10);
+    ClipBoard internalCb;
+
+    // Whole lines 1, 2
+    TR_ASSERT(t, internalCb.CopyFromBuffer(src, {0,1}, {0,3}));
+    auto osText = AsWindowsClipboard(UnicodeHelper::utf32to8(internalCb.Top()->AsText()));
+    TR_ASSERT(t, osText == "line 1\r\nline 2\r\n");
+    ClipBoard externalCb;
+    externalCb.CopyFromExternal(osText.c_str());
+    auto dst = MakeNumberedBuffer("DST", 5);
+    externalCb.PasteToBuffer(dst, {0,2});
+    TR_ASSERT(t, dst->NumLines() == 7);
+    TR_ASSERT(t, dst->LineAt(2)->Buffer() == U"line 1");
+    TR_ASSERT(t, dst->LineAt(3)->Buffer() == U"line 2");
+    TR_ASSERT(t, dst->LineAt(4)->Buffer() == U"DST 2");
+    // And out again: the same text, not '\r\r\n'
+    TR_ASSERT(t, AsWindowsClipboard(UnicodeHelper::utf32to8(externalCb.Top()->AsText())) == osText);
+
+    // Charwise: still joins the line it lands in
+    TR_ASSERT(t, internalCb.CopyFromBuffer(src, {2,1}, {4,2}));
+    osText = AsWindowsClipboard(UnicodeHelper::utf32to8(internalCb.Top()->AsText()));
+    ClipBoard charwiseCb;
+    charwiseCb.CopyFromExternal(osText.c_str());
+    dst = MakeNumberedBuffer("DST", 5);
+    charwiseCb.PasteToBuffer(dst, {0,2});
+    TR_ASSERT(t, dst->NumLines() == 6);
+    TR_ASSERT(t, dst->LineAt(2)->Buffer() == U"ne 1");
+    TR_ASSERT(t, dst->LineAt(3)->Buffer() == U"lineDST 2");
+    for (size_t i = 0; i < dst->NumLines(); i++) {
+        TR_ASSERT(t, dst->LineAt(i)->Buffer().find(U'\r') == std::u32string::npos);
+    }
     return kTR_Pass;
 }
 

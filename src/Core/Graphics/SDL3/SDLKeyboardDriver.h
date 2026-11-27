@@ -32,6 +32,7 @@ namespace gedit::SDL3 {
     protected:
         std::optional<KeyPress> HandleKeyPressEvent(const SDL_Event &event);
         void CheckRemoveTextInputEventForKeyPress(const KeyPress &kp);
+        std::optional<KeyPress> TakeAltGrText();
         KeyPress TranslateSDLEvent(const SDL_KeyboardEvent &kbdEvent);
         int TranslateScanCode(int scanCode);
         void HookEditorClipBoard();

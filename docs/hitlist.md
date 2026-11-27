@@ -23,9 +23,9 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   - [x] Windows - opens at 300 % (3840x2400) sharp and at the right size, tree + highlighting + minimap, `räksmörgås.h` named
     right, clicks land, typing, `Ctrl+S` (an LF file stays LF) (2026-11-26)
   - [x] Windows - US layout: Alt+`[` / `]` cycle the panels, Alt+`{` / `}` switch the editor's tabs (2026-11-26)
-  - [ ] Windows - **AltGr** (§4.1, a Swedish / German layout - `Win+Space`): AltGr+7 8 9 0 `{ [ ] }`, AltGr+`+` `\`, AltGr+2 / 4
+  - [x] Windows - **AltGr** (§4.1, a Swedish / German layout - `Win+Space`): AltGr+7 8 9 0 `{ [ ] }`, AltGr+`+` `\`, AltGr+2 / 4
     `@ $`, AltGr+`<` `|`, AltGr+E `€`, `~` (dead key) - the character, not a Ctrl+Alt shortcut. The user codes on US layout, so
-    this is for other users
+    this is for other users. 11-27: was Alt+<key> (the character dropped) - fixed (`Keyboard::IsAltGrText`), works on SE
   - [ ] Windows - Alt+`{` / `}` in the workspace tree moves up / down: meant, or should it be the tabs there too?
   - [ ] Windows - Alt+`\` does nothing (US layout) - bound to anything on Linux?
   - [ ] Windows - the tree was scrolled one column sideways (every row's first character gone) after a resize right at start

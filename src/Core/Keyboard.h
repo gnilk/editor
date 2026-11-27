@@ -85,6 +85,12 @@ namespace gedit {
             return ((modifiers & ShiftMask()) != 0) && ((modifiers & (CmdMask() | CtrlMask())) == 0);
         }
 
+        // AltGr (a right Alt without the left one; Windows adds a left Ctrl to it) that typed a character: the character
+        // is text - AltGr+8 on a Swedish layout is '[' - not an Alt shortcut. With no character it stays a shortcut.
+        static __inline bool IsAltGrText(int modifiers, bool hasText) {
+            return hasText && ((modifiers & kMod_RightAlt) != 0) && ((modifiers & (kMod_LeftAlt | CmdMask())) == 0);
+        }
+
         static int ModifierMaskFromString(const std::string &strModifiers);
 
         static bool IsNameModifierMask(const std::string &modiferName);

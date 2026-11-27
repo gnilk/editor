@@ -13,6 +13,7 @@ using namespace gedit;
 extern "C" {
 DLL_EXPORT int test_keymapping(ITesting *t);
 DLL_EXPORT int test_keymapping_parse(ITesting *t);
+DLL_EXPORT int test_keymapping_altgrtext(ITesting *t);
 DLL_EXPORT int test_keymapping_toggleignored(ITesting *t);
 DLL_EXPORT int test_keymapping_badmodifiers(ITesting *t);
 DLL_EXPORT int test_keymapping_kpaction(ITesting *t);
@@ -698,5 +699,21 @@ DLL_EXPORT int test_keymapping_usability_gaps(ITesting *t) {
     }
     KeyMapping::SetConfigSection(osSection);
     KeyMappingCache::Instance().Clear();
+    return kTR_Pass;
+}
+
+// AltGr that typed a character is text, not an Alt shortcut (Windows, Swedish layout: AltGr+8 = '[')
+DLL_EXPORT int test_keymapping_altgrtext(ITesting *t) {
+    // Windows' AltGr: right Alt + left Ctrl
+    TR_ASSERT(t, Keyboard::IsAltGrText(Keyboard::kMod_RightAlt | Keyboard::kMod_LeftCtrl, true));
+    TR_ASSERT(t, Keyboard::IsAltGrText(Keyboard::kMod_RightAlt, true));
+    TR_ASSERT(t, Keyboard::IsAltGrText(Keyboard::kMod_RightAlt | Keyboard::kMod_LeftShift, true));
+    // No character: still a shortcut
+    TR_ASSERT(t, !Keyboard::IsAltGrText(Keyboard::kMod_RightAlt | Keyboard::kMod_LeftCtrl, false));
+    // The left Alt is UI navigation - always a shortcut
+    TR_ASSERT(t, !Keyboard::IsAltGrText(Keyboard::kMod_LeftAlt, true));
+    TR_ASSERT(t, !Keyboard::IsAltGrText(Keyboard::kMod_LeftAlt | Keyboard::kMod_RightAlt, true));
+    TR_ASSERT(t, !Keyboard::IsAltGrText(Keyboard::kMod_RightAlt | Keyboard::kMod_LeftCommand, true));
+    TR_ASSERT(t, !Keyboard::IsAltGrText(0, true));
     return kTR_Pass;
 }

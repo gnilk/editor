@@ -78,6 +78,13 @@ std::optional<KeyPress> SDLKeyboardDriver::ProcessEvent(const SDL_Event &event) 
     // ----------------------------------------------------------------------------------
 
     if (event.type == SDL_EVENT_KEY_DOWN) {
+#ifdef GEDIT_WINDOWS
+        // AltGr arrives as right Alt (+ left Ctrl) - without this the key became Alt+<key> and its text was dropped
+        // (macOS: right Option is left alone by SDL_HINT_MAC_OPTION_AS_ALT; Linux X11 reports AltGr as a mode key)
+        if (auto altGrText = TakeAltGrText(); altGrText.has_value()) {
+            return altGrText;
+        }
+#endif
         auto kp = HandleKeyPressEvent(event);
         if (kp.has_value()) {
             CheckRemoveTextInputEventForKeyPress(*kp);
@@ -143,6 +150,47 @@ void SDLKeyboardDriver::CheckRemoveTextInputEventForKeyPress(const KeyPress &kp)
             }
         }
     }
+}
+
+// The text this key down typed, when it was AltGr: the TEXT_INPUT queued behind it (before the next key down) is taken
+// and returned as plain text, no modifiers.
+std::optional<KeyPress> SDLKeyboardDriver::TakeAltGrText() {
+    auto modifiers = TranslateModifiers(SDL_GetModState());
+    if (!Keyboard::IsAltGrText(modifiers, true)) {
+        return {};
+    }
+
+    SDL_Event peekEvents[16];
+    SDL_PumpEvents();
+    int nEvents = SDL_PeepEvents(peekEvents, 16, SDL_PEEKEVENT, SDL_EVENT_FIRST, SDL_EVENT_LAST);
+    bool hasText = false;
+    for (int i = 0; i < nEvents; i++) {
+        if (peekEvents[i].type == SDL_EVENT_KEY_DOWN) {
+            break;
+        }
+        if (peekEvents[i].type == SDL_EVENT_TEXT_INPUT) {
+            hasText = true;
+            break;
+        }
+    }
+    if (!Keyboard::IsAltGrText(modifiers, hasText)) {
+        return {};
+    }
+
+    SDL_Event textEvent;
+    if (SDL_PeepEvents(&textEvent, 1, SDL_GETEVENT, SDL_EVENT_TEXT_INPUT, SDL_EVENT_TEXT_INPUT) != 1) {
+        return {};
+    }
+    auto u32str = UnicodeHelper::utf8to32(textEvent.text.text);
+    if (u32str.empty()) {
+        return {};
+    }
+    KeyPress kp;
+    kp.isSpecialKey = false;
+    kp.isKeyValid   = true;
+    kp.modifiers    = 0;
+    kp.key          = u32str[0];
+    return kp;
 }
 
 std::optional<KeyPress> SDLKeyboardDriver::HandleKeyPressEvent(const SDL_Event &event) {

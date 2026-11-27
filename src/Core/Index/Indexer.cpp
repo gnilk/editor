@@ -13,9 +13,17 @@
 using namespace gedit;
 namespace fs = std::filesystem;
 
-// 'folder' is 'root' or somewhere below it
+// 'folder' is 'root' or somewhere below it - the paths as the scanner gives them, so the platform's separator ('\\' on
+// Windows, where '/' is one too)
 static bool IsBelow(const std::string &folder, const std::string &root) {
-    return (folder.compare(0, root.size(), root) == 0) && ((folder.size() == root.size()) || (folder[root.size()] == '/'));
+    if (folder.compare(0, root.size(), root) != 0) {
+        return false;
+    }
+    if (folder.size() == root.size()) {
+        return true;
+    }
+    auto next = folder[root.size()];
+    return (next == '/') || (next == static_cast<char>(fs::path::preferred_separator));
 }
 
 Indexer::Indexer(CodeIndex::Ref newIndex, Languages newLanguages, Options newOptions) : index(std::move(newIndex)), languages(std::move(newLanguages)), options(std::move(newOptions)) {

@@ -302,7 +302,13 @@ DLL_EXPORT int test_exclusion_git(ITesting *t) {
         {"local/a.h", false}, {"app/osxtest/e_old_2.c", false}, {"app/osxtest/sub/e_old_2.c", false}, {"src/gen", false},
         {"src/a/b/gen", false}, {"docs/a.md", false}, {"docs/keep/a.md", false}, {"docs/keep", true}, {"main.cpp", false},
     };
-    std::string command = "cd '" + root.string() + "' && git init -q . 2>/dev/null";
+    // 'git -C' and double quotes - std::system is cmd.exe on Windows (no 'cd ... &&' with single quotes, no /dev/null)
+#ifdef GEDIT_WINDOWS
+    const std::string toNull = " 2>nul";
+#else
+    const std::string toNull = " 2>/dev/null";
+#endif
+    std::string command = "git -C \"" + root.string() + "\" init -q ." + toNull;
     TR_ASSERT(t, std::system(command.c_str()) == 0);
 
     auto rules = ExclusionRules::Create(root, {}, true);
@@ -313,7 +319,7 @@ DLL_EXPORT int test_exclusion_git(ITesting *t) {
         } else {
             WriteFile(root / path, "");
         }
-        auto gitCommand = "cd '" + root.string() + "' && git check-ignore -q '" + path + (isDirectory ? "/" : "") + "'";
+        auto gitCommand = "git -C \"" + root.string() + "\" check-ignore -q \"" + path + (isDirectory ? "/" : "") + "\"";
         bool isGitIgnored = std::system(gitCommand.c_str()) == 0;
         bool isIgnored = rules->Check(root / path, isDirectory) == kVerdict::kIgnored;
         if (isGitIgnored != isIgnored) {

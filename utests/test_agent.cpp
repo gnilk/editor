@@ -584,6 +584,9 @@ DLL_EXPORT int test_agent_template_tool(ITesting *t) {
     TR_ASSERT(t, AgentQuestionTemplate::FindTool(folders, "why.py") == folder / "user" / "why.py");
     TR_ASSERT(t, AgentQuestionTemplate::FindTool(folders, "only.py") == folder / "system" / "only.py");
     TR_ASSERT(t, AgentQuestionTemplate::FindTool(folders, "none.py").empty());
+    // A name only - no way out of the tool folders, with either separator
+    TR_ASSERT(t, AgentQuestionTemplate::FindTool(folders, "../user/why.py").empty());
+    TR_ASSERT(t, AgentQuestionTemplate::FindTool(folders, "..\\user\\why.py").empty());
     TR_ASSERT(t, AgentQuestionTemplate::FindTool(folders, "../system/why.py").empty());
     TR_ASSERT(t, AgentQuestionTemplate::FindTool(folders, "..").empty());
     std::filesystem::remove_all(folder);

@@ -3,6 +3,7 @@
 //
 
 #include <algorithm>
+#include <cstring>
 #include <filesystem>
 #include <mutex>
 #include <tuple>
@@ -446,8 +447,11 @@ uint8_t CodeIndex::Proximity(const File &file, const std::string &activeFolder, 
     if (file.path == activePath) {
         return 0;
     }
+    // '/' and the platform's own separator ('\\' on Windows) - the paths as the scanner gives them
+    static const char separators[] = {'/', static_cast<char>(std::filesystem::path::preferred_separator), '\0'};
     bool isSameFolder = (file.path.size() > activeFolder.size()) && (file.path.compare(0, activeFolder.size(), activeFolder) == 0) &&
-                        (file.path[activeFolder.size()] == '/') && (file.path.find('/', activeFolder.size() + 1) == std::string::npos);
+                        (std::strchr(separators, file.path[activeFolder.size()]) != nullptr) &&
+                        (file.path.find_first_of(separators, activeFolder.size() + 1) == std::string::npos);
     return isSameFolder ? 1 : 2;
 }
 

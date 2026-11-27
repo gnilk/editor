@@ -35,6 +35,7 @@ extern "C" {
     DLL_EXPORT int test_buildmessages_linker(ITesting *t);
     DLL_EXPORT int test_buildmessages_carriagereturn(ITesting *t);
     DLL_EXPORT int test_buildmessages_noplace(ITesting *t);
+    DLL_EXPORT int test_buildmessages_driveletter(ITesting *t);
     DLL_EXPORT int test_buildmessages_makedirs(ITesting *t);
     DLL_EXPORT int test_buildmessages_reset(ITesting *t);
     DLL_EXPORT int test_buildmessages_commands(ITesting *t);
@@ -447,6 +448,24 @@ DLL_EXPORT int test_buildmessages_noplace(ITesting *t) {
     TR_ASSERT(t, messages[1].path == "src/old.c");
     TR_ASSERT(t, messages[1].line == 12);
     TR_ASSERT(t, messages[1].column == 0);
+    return kTR_Pass;
+}
+
+// Windows: clang-cl and gcc print 'C:\\src\\a.cpp:12:5: error: ...' - the drive's ':' is part of the path
+DLL_EXPORT int test_buildmessages_driveletter(ITesting *t) {
+    auto parser = ParseAll("C:\\src\\a.cpp:12:5: error: use of undeclared identifier 'x'\n"
+                           "C:/src/b.cpp:3: warning: unused variable 'y'\n"
+                           "C:\\src\\c.cpp: error: no place\n");
+    auto &messages = parser.Messages();
+    TR_ASSERT(t, messages.size() == 3);
+    TR_ASSERT(t, messages[0].path == "C:\\src\\a.cpp");
+    TR_ASSERT(t, (messages[0].line == 12) && (messages[0].column == 5));
+    TR_ASSERT(t, messages[0].message == "use of undeclared identifier 'x'");
+    TR_ASSERT(t, messages[1].path == "C:/src/b.cpp");
+    TR_ASSERT(t, (messages[1].line == 3) && (messages[1].column == 0));
+    // No line: a tool's own line - the whole location goes into the message, as 'clang: error: ...'
+    TR_ASSERT(t, messages[2].path.empty());
+    TR_ASSERT(t, messages[2].message == "C:\\src\\c.cpp: no place");
     return kTR_Pass;
 }
 

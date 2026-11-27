@@ -199,8 +199,8 @@ AgentQuestionTemplate::Ref AgentQuestionTemplate::Find(const std::vector<Ref> &t
 }
 
 fs::path AgentQuestionTemplate::FindTool(const std::vector<fs::path> &folders, const std::string &name) {
-    // A name, not a path - a template can't reach outside the tool folders
-    if (name.empty() || (name.find('/') != std::string::npos) || (name == "..") || (name == ".")) {
+    // A name, not a path - a template can't reach outside the tool folders ('\\' is a separator on Windows)
+    if (name.empty() || (name.find_first_of("/\\") != std::string::npos) || (name == "..") || (name == ".")) {
         return {};
     }
     for (auto it = folders.rbegin(); it != folders.rend(); ++it) {

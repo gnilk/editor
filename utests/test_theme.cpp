@@ -113,7 +113,8 @@ static std::filesystem::path WriteTheme(const std::string &colorsText) {
         std::filesystem::remove(colorsPath);
     }
     auto themePath = dir / "test.theme.yml";
-    std::ofstream(themePath) << "name: test\ncolorfile: \"" << colorsPath.string() << "\"\n";
+    // '/' - in a double-quoted YAML string a Windows '\' starts an escape ("C:\Users" is a bad \U)
+    std::ofstream(themePath) << "name: test\ncolorfile: \"" << colorsPath.generic_string() << "\"\n";
     return themePath;
 }
 

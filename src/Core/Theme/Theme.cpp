@@ -150,7 +150,7 @@ std::optional<Theme::Location> Theme::Locate(const std::string &fileName, const 
     std::vector<Location> candidates;
     if (nextTo.has_value()) {
         auto dir = std::filesystem::path(nextTo->name).parent_path();
-        candidates.push_back({(dir / fileName).string(), nextTo->locationType});
+        candidates.push_back({(dir / fileName).generic_string(), nextTo->locationType});
     }
     candidates.push_back({std::string(USER_THEME_DIR) + "/" + fileName, kLocationType::kUser});
     candidates.push_back({fileName, kLocationType::kUser});

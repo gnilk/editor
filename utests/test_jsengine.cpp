@@ -213,7 +213,12 @@ DLL_EXPORT int test_jsengine_buildmessages(ITesting *t) {
     build.EndRun();
 
     auto json = runScript("JSON.stringify(Terminal.GetMessages())");
-    auto expected = std::string("[{\"severity\":\"error\",\"file\":\"a.c\",\"path\":\"") + (canonicalDir / "a.c").string() +
+    // As JSON writes it: a Windows '\\' is escaped
+    std::string jsonPath;
+    for (auto ch : (canonicalDir / "a.c").string()) {
+        jsonPath += (ch == '\\') ? std::string("\\\\") : std::string(1, ch);
+    }
+    auto expected = std::string("[{\"severity\":\"error\",\"file\":\"a.c\",\"path\":\"") + jsonPath +
                     "\",\"line\":6,\"column\":12,\"message\":\"use of undeclared identifier\"},"
                     "{\"severity\":\"warning\",\"file\":\"w.c\",\"path\":\"\",\"line\":2,\"column\":5,\"message\":\"unused variable 'x'\"}]";
     TR_ASSERT(t, json == expected);

@@ -72,9 +72,20 @@ void Line::NotifyChangeHandler() {
    cbChanged(*this);
 }
 
+// Every write to 'buffer' holds 'lock': the parse thread reads it under the same lock (LangLineTokenizer::ParseLine) -
+// a Clear without it left the thread's iterator past the new end (MSVC's checked iterators caught it, 2026-11-27)
 void Line::Clear() {
-    buffer = U"";
+    std::lock_guard<std::mutex> guard(lock);
+    buffer.clear();
     isHashValid = false;
+}
+
+void Line::Replace(const std::u32string &text) {
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        buffer = text;
+    }
+    NotifyChangeHandler();
 }
 
 uint64_t Line::ContentHashLocked() {
@@ -203,10 +214,10 @@ int Line::Unindent(size_t tabSize) {
 int Line::Indent(size_t tabSize) {
 
     auto nChars = tabSize * indent;
-    for (size_t i = 0; i < nChars; i++) {
-        buffer.insert(0, U" ");
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        buffer.insert(0, nChars, U' ');
     }
-
     NotifyChangeHandler();
     return indent;
 }

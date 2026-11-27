@@ -88,15 +88,17 @@ std::u32string SymbolSearchModal::OnRowDetail(int idxRow) {
 }
 
 std::string SymbolSearchModal::HitLocation(const CodeIndex::Hit &hit, const std::vector<std::filesystem::path> &roots) {
+    // Inside a root: relative, with '/' on every platform (as Quick Open shows it); outside: the path as it is
     std::filesystem::path path(hit.path);
+    auto location = path.string();
     for (auto &root : roots) {
         auto relative = path.lexically_relative(root);
         if (!relative.empty() && (*relative.begin() != "..")) {
-            path = relative;
+            location = relative.generic_string();
             break;
         }
     }
-    return path.string() + ":" + std::to_string(hit.line + 1);
+    return location + ":" + std::to_string(hit.line + 1);
 }
 
 // Only the active document: previewing another file would have to open it just to look

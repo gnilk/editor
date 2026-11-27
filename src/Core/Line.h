@@ -73,6 +73,8 @@ namespace gedit {
         }
 
         void Clear();
+        // The whole text at once, under the line's lock - the parse thread never sees it half-way (an undo)
+        void Replace(const std::u32string &text);
         void Append(char32_t ch);
         void Append(const std::u32string &srcdata);
         void Append(const std::u32string_view &srcdata);

@@ -81,8 +81,7 @@ void UndoHistory::UndoItemSingle::Initialize(const LineCursor &fromCursor, TextB
 
 int32_t UndoHistory::UndoItemSingle::Restore(TextBuffer::Ref textBuffer) {
     auto line = textBuffer->LineAt(lineCursor.idxActiveLine);
-    line->Clear();
-    line->Append(data);
+    line->Replace(data);
     return 1;
 }
 
@@ -122,8 +121,7 @@ int32_t UndoHistory::UndoItemRange::Restore(TextBuffer::Ref textBuffer) {
         auto idxLine = start.y;
         for(auto &oldLine : data) {
             auto line = textBuffer->LineAt(idxLine);
-            line->Clear();
-            line->Append(oldLine);
+            line->Replace(oldLine);
             idxLine++;
         }
         return nLinesToRestore;

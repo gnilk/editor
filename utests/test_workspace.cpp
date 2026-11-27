@@ -523,6 +523,14 @@ DLL_EXPORT int test_workspace_canonicalroot(ITesting *t) {
     auto leaf = rootNode->FindNodeWithPath(canonicalRoot / "a" / "leaf.txt");
     TR_ASSERT(t, leaf != nullptr);
     TR_ASSERT(t, workspace.NewDocumentWithFileRef(root / "." / "a" / "leaf.txt") == leaf);
+    // '/' and the platform's separator are one path
+    TR_ASSERT(t, workspace.NewDocumentWithFileRef(fs::path(root.generic_string() + "/a/leaf.txt")) == leaf);
+#ifdef GEDIT_WINDOWS
+    // Windows: case doesn't make another file - canonical gives the case on disk (C:\Src\a.cpp == c:\src\A.CPP)
+    auto upper = root.string() + "\\A\\LEAF.TXT";
+    std::transform(upper.begin(), upper.end(), upper.begin(), [](char ch) { return (char)std::toupper((unsigned char)ch); });
+    TR_ASSERT(t, workspace.NewDocumentWithFileRef(upper) == leaf);
+#endif
 
     fs::remove_all(root, ec);
     return kTR_Pass;

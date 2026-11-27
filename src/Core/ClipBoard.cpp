@@ -201,16 +201,14 @@ Point ClipBoard::ClipBoardItem::PasteToBuffer(TextBuffer::Ref dstBuffer, const P
 
     if (segs.size() == 1) {
         // No line break in the pasted text - splice it inline: head + seg + tail.
-        targetLine->Clear();
-        targetLine->Append(head + segs[0] + tail);
+        targetLine->Replace(head + segs[0] + tail);
         // Caret lands after the spliced-in text, on the same line.
         return Point((int)(px + segs[0].length()), (int)idxLine);
     }
 
     // Multi-line paste: first segment joins the head, the rest become their own lines, and the last
     // segment carries the original tail.
-    targetLine->Clear();
-    targetLine->Append(head + segs.front());
+    targetLine->Replace(head + segs.front());
 
     size_t insertAt = idxLine + 1;
     for (size_t i = 1; (i + 1) < segs.size(); i++) {

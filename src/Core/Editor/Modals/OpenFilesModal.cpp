@@ -58,6 +58,7 @@ std::vector<size_t> OpenFilesModal::Filter(const std::vector<Entry> &entries, co
     return matches;
 }
 
+// Inside a root: relative, with '/' on every platform (as Quick Open shows it); outside: the folder as it is
 std::u32string OpenFilesModal::FolderOf(const fs::path &path, const std::vector<fs::path> &roots) {
     std::error_code error;
     auto folder = fs::weakly_canonical(path, error).parent_path();
@@ -67,7 +68,7 @@ std::u32string OpenFilesModal::FolderOf(const fs::path &path, const std::vector<
     for (auto &root : roots) {
         auto relative = folder.lexically_relative(root);
         if (!relative.empty() && (*relative.begin() != "..")) {
-            return (relative == ".") ? std::u32string{} : UnicodeHelper::utf8to32(relative.string());
+            return (relative == ".") ? std::u32string{} : UnicodeHelper::utf8to32(relative.generic_string());
         }
     }
     return UnicodeHelper::utf8to32(folder.string());

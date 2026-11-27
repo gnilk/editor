@@ -136,7 +136,8 @@ static bool IsStrictSubdir(const std::filesystem::path &path, const std::filesys
     if (ec || rel.empty()) {
         return false;
     }
-    const auto &first = *rel.begin();
+    // A copy: MSVC's path iterator holds the element itself - a reference into the temporary dangles (Windows only)
+    const auto first = *rel.begin();
     return first != "." && first != "..";
 }
 

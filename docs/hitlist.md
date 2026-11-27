@@ -26,7 +26,7 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   - [x] Windows - **AltGr** (§4.1, a Swedish / German layout - `Win+Space`): AltGr+7 8 9 0 `{ [ ] }`, AltGr+`+` `\`, AltGr+2 / 4
     `@ $`, AltGr+`<` `|`, AltGr+E `€`, `~` (dead key) - the character, not a Ctrl+Alt shortcut. The user codes on US layout, so
     this is for other users. 11-27: was Alt+<key> (the character dropped) - fixed (`Keyboard::IsAltGrText`), works on SE
-  - [ ] Windows - Alt+`{` / `}` in the workspace tree moves up / down: meant, or should it be the tabs there too?
+  - [x] Windows - Alt+`{` / `}` in the workspace tree moves up / down: meant, or should it be the tabs there too? 11-27: fine as it is
   - [ ] Windows - Alt+`\` does nothing (US layout) - bound to anything on Linux?
   - [ ] Windows - the tree was scrolled one column sideways (every row's first character gone) after a resize right at start
   - [ ] Mac - SDL3 now scales by the display scale (5ef8d147): on paper the same on a Mac - check font size, sharpness, clicks

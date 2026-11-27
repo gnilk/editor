@@ -161,6 +161,9 @@ windows:
   modal_keymap: Linux/modal_keymap.yml
   hexview_keymap: Linux/hexview_keymap.yml
   messages_keymap: Linux/messages_keymap.yml
+  # Folders that may hold projects, besides your home folder (a project is a real sub-folder of one). Read from your
+  # user config only - a project's config can't widen it. Single quotes keep the '\' as it is.
+  # project_folders: [ 'C:\src', 'D:\src' ]
 
 sdl:
   # Defines the SDL window rendering backend 'opengl', 'vulkan', 'metal' - empty or unknown means default...

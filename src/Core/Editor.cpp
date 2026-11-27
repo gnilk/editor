@@ -116,31 +116,6 @@ Editor::~Editor() {
     }
 }
 
-// True if 'path' lies within the 'base' subtree (base itself counts as within).
-// Uses relative() so it can't be fooled by a shared string prefix (/home/gnilkfoo
-// is NOT under /home/gnilk).
-static bool IsWithinTree(const std::filesystem::path &path, const std::filesystem::path &base) {
-    std::error_code ec;
-    auto rel = std::filesystem::relative(path, base, ec);
-    if (ec || rel.empty()) {
-        return false;
-    }
-    return *rel.begin() != "..";
-}
-
-// True if 'path' is strictly BELOW 'base' - excludes base itself ("." ) and anything
-// outside it (".."). This is the "is this a real project directory" test.
-static bool IsStrictSubdir(const std::filesystem::path &path, const std::filesystem::path &base) {
-    std::error_code ec;
-    auto rel = std::filesystem::relative(path, base, ec);
-    if (ec || rel.empty()) {
-        return false;
-    }
-    // A copy: MSVC's path iterator holds the element itself - a reference into the temporary dangles (Windows only)
-    const auto first = *rel.begin();
-    return first != "." && first != "..";
-}
-
 static std::filesystem::path AbsoluteArg(const std::string &arg, const std::filesystem::path &cwd) {
     std::filesystem::path argPath(arg);
     return (argPath.is_absolute() ? argPath : (cwd / argPath)).lexically_normal();
@@ -154,18 +129,18 @@ bool Editor::IsProjectLaunch(const std::vector<std::string> &args, const std::fi
 }
 
 // The project dir ('<root>/.goatedit') for this launch, or nullopt. The root is the one folder argument of a project
-// launch (IsProjectLaunch). Only a real sub-directory of home, so '/', '$HOME' itself and anything outside home (e.g.
-// /var/log) can never become a project - the same guard as EstablishProjectDir. Resolving never creates anything: the
+// launch (IsProjectLaunch). Only where ProjectFolders allows one - a real sub-folder of home (or, on Windows, of a
+// project folder), so '/', '$HOME' itself and /var/log never become a project - the same guard as EstablishProjectDir. Resolving never creates anything: the
 // dir must already exist (the folder open may still auto-create it later).
 std::optional<std::filesystem::path> Editor::ResolveProjectDir(const std::vector<std::string> &args,
                                                                const std::filesystem::path &cwd,
-                                                               const std::filesystem::path &pathHome) {
+                                                               const ProjectFolders &projectFolders) {
     if (!IsProjectLaunch(args, cwd)) {
         return {};
     }
     auto root = AbsoluteArg(args.front(), cwd);
     auto projectDir = root / ".goatedit";
-    if (!IsStrictSubdir(root, pathHome) || !std::filesystem::is_directory(projectDir)) {
+    if (!projectFolders.CanHoldProject(root) || !std::filesystem::is_directory(projectDir)) {
         return {};
     }
     return projectDir;
@@ -173,7 +148,7 @@ std::optional<std::filesystem::path> Editor::ResolveProjectDir(const std::vector
 
 std::vector<std::filesystem::path> Editor::UnusedProjectDirs(const std::vector<std::string> &args,
                                                              const std::filesystem::path &cwd,
-                                                             const std::filesystem::path &pathHome) {
+                                                             const ProjectFolders &projectFolders) {
     std::vector<std::filesystem::path> unused;
     if (IsProjectLaunch(args, cwd)) {
         return unused;
@@ -181,7 +156,7 @@ std::vector<std::filesystem::path> Editor::UnusedProjectDirs(const std::vector<s
     for (auto &arg : args) {
         auto root = AbsoluteArg(arg, cwd);
         auto projectDir = root / ".goatedit";
-        if (std::filesystem::is_directory(root) && IsStrictSubdir(root, pathHome) && std::filesystem::is_directory(projectDir)) {
+        if (std::filesystem::is_directory(root) && projectFolders.CanHoldProject(root) && std::filesystem::is_directory(projectDir)) {
             unused.push_back(projectDir);
         }
     }
@@ -213,31 +188,36 @@ bool Editor::Initialize(int argc, const char **argv) {
 
     ConfigureAssetSearchPaths();
 
+    // System + user config first: where a project may live is the user's to say (windows.project_folders), and the
+    // project root - so the project config - depends on it
+    if (!TryLoadConfig("config.yml")) {
+        logger->Error("Configuration file missing - please reinstall!!");
+        return false;
+    }
+    auto projectFolders = ProjectFolders::Current();
+
     // When started from the UI (someone clicking the icon) there is no meaningful CWD
     // pointing at a project - notably macOS Finder launches start at filesystem root.
     // Relative-path operations (open/save, default workspace) would then resolve under
-    // '/' where nothing useful lives, so relocate to $HOME when CWD is outside the home tree.
-    // Done BEFORE the config load: the project root (and so the project config) depends on it.
+    // '/' where nothing useful lives, so relocate to $HOME when CWD is outside the home tree
+    // (and, on Windows, outside every project folder).
     auto cwd = std::filesystem::current_path();
     auto cwdBeforeRelocation = cwd;
-    if (!IsWithinTree(cwd, pathHome) && !isUnitTest) {
+    if (!projectFolders.IsWithin(cwd) && !isUnitTest) {
         std::filesystem::current_path(pathHome);
         cwd = std::filesystem::current_path();
     }
 
     // A '.goatedit' directory in the project (mirroring '~/.goatedit') is the opt-in
     // marker for project-local assets/config/history. Resolved from the arguments BEFORE anything is
-    // opened, so the project config can be merged together with the system + user config below.
+    // opened; the project config is merged on top of the system + user config.
     isProjectLaunch = IsProjectLaunch(pendingFiles, cwd);
-    auto projectDir = ResolveProjectDir(pendingFiles, cwd, pathHome);
+    auto projectDir = ResolveProjectDir(pendingFiles, cwd, projectFolders);
     if (projectDir.has_value()) {
         assetLoader.AddSearchPath(projectDir.value(), AssetLoaderBase::kLocationType::kProject);
-    }
-
-    // should probably rename the config-file to 'goatedit.yml' or something...
-    if (!TryLoadConfig("config.yml")) {
-        logger->Error("Configuration file missing - please reinstall!!");
-        return false;
+        if (loadUserConfig) {
+            Config::Instance().TryMergeProjectConfig("config.yml");
+        }
     }
     logger->Debug("Configuration loaded, proceeding with rest of startup");
 
@@ -247,15 +227,26 @@ bool Editor::Initialize(int argc, const char **argv) {
     // From this point on we have proper logging to files....
     logger->Debug("*********** Config file was loaded, pre-boot completed **************");
 
+    // Windows: code often lives outside home ('C:\src') - say how to make such a folder a project (windows-port.md §3.2)
+    bool isProjectFolderHinted = (UserDirs::CurrentPlatform() == UserDirs::kPlatform::kWindows);
+    auto userConfigFile = GetDefaultUserConfigDir() / "config.yml";
     if (cwd != cwdBeforeRelocation) {
         logger->Warning("Working Directory (%s) outside of home directory, changed to home-root (%s)", cwdBeforeRelocation.string().c_str(), pathHome.string().c_str());
-        Notice(fmt::format("started outside your home directory ('{}') - working in '{}'", cwdBeforeRelocation.string(), pathHome.string()));
+        auto hint = isProjectFolderHinted ? projectFolders.StartedOutsideHint(cwdBeforeRelocation, userConfigFile) : std::string();
+        Notice(!hint.empty() ? hint : fmt::format("started outside your home directory ('{}') - working in '{}'", cwdBeforeRelocation.string(), pathHome.string()));
+    }
+    if (isProjectFolderHinted && isProjectLaunch && !projectDir.has_value()) {
+        auto hint = projectFolders.NotAProjectHint(pathutil::CanonicalPath(AbsoluteArg(pendingFiles.front(), cwd)), userConfigFile);
+        if (!hint.empty()) {
+            logger->Warning("%s", hint.c_str());
+            Notice(hint);
+        }
     }
     logger->Debug("CWD is: %s", cwd.string().c_str());
     if (projectDir.has_value()) {
         logger->Debug("Project dir: %s", projectDir->string().c_str());
     }
-    for (auto &unusedDir : UnusedProjectDirs(pendingFiles, cwd, pathHome)) {
+    for (auto &unusedDir : UnusedProjectDirs(pendingFiles, cwd, projectFolders)) {
         logger->Warning("Not a single-folder launch - project settings in '%s' not used", unusedDir.string().c_str());
         Notice(fmt::format("not a single-folder launch - project settings in '{}' not used", unusedDir.string()));
     }
@@ -507,10 +498,9 @@ bool Editor::EstablishProjectDir() {
     if (!Config::Instance()["session"].GetBool("enabled", true)) {
         return false;
     }
-    auto pathHome = UserDirs::Home();
     auto cwd = std::filesystem::current_path();
-    // Same guard as init-time kProject registration: only a strict subdir of $HOME can host a project.
-    if (!IsStrictSubdir(cwd, pathHome)) {
+    // Same guard as init-time kProject registration: only where ProjectFolders allows a project.
+    if (!ProjectFolders::Current().CanHoldProject(cwd)) {
         return false;
     }
     auto projectDir = cwd / ".goatedit";
@@ -1097,7 +1087,6 @@ bool Editor::TryLoadConfig(const char *configFile) {
     // Merge with user conf, then project conf (system -> user -> project; last one wins)..
     if (loadUserConfig) {
         Config::Instance().TryMergeUserConfig(configFile, true);
-        Config::Instance().TryMergeProjectConfig(configFile);
     } else {
         logger->Debug("User + project config loading disabled, skipping!");
     }
@@ -1654,12 +1643,10 @@ void Editor::IndexProjectRoots() {
     }
 }
 
-// Not a project: the cwd root, or a folder that holds the whole home directory
+// Not a project: the cwd root, home, a folder that holds it, a drive root or a system folder (ProjectFolders::IsTooWide)
 bool Editor::IsProjectRoot(const Workspace::ProjectRoot::Ref &root) {
-    auto pathHome = UserDirs::Home();
     auto rootPath = pathutil::CanonicalPath(root->GetRootPath());
-    bool isTooWide = (rootPath == pathHome) || IsStrictSubdir(pathHome, rootPath);
-    return !workspace->IsDefaultRoot(root) && !isTooWide;
+    return !workspace->IsDefaultRoot(root) && !ProjectFolders::Current().IsTooWide(rootPath);
 }
 
 // The roots the code index walks, each with its rules; the walk's end only asks for a redraw - the open list takes the

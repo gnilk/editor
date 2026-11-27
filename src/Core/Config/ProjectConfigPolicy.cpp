@@ -16,6 +16,7 @@ static const std::vector<std::pair<std::string, std::string>> deniedKeys = {
     { "main",     "ai_settle_ms" },         // when the editor types into the agent - the user's, with the agent
     { "main",     "ai_model" },             // which model the Editor Agent runs - it is the user's usage
     { "logging",  "logfile" },
+    { "windows",  "project_folders" },      // where a project may live - a folder never widens it (windows-port.md §3.2)
 };
 
 // Keys that run a command - denied in EVERY section, at any depth: a configured tab hands any section to a terminal

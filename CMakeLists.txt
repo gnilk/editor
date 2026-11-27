@@ -458,6 +458,7 @@ list(APPEND coresrc src/Core/Theme/ThemeImporter.cpp src/Core/Theme/ThemeImporte
 list(APPEND coresrc src/Core/RuntimeConfig.cpp src/Core/RuntimeConfig.h)
 list(APPEND coresrc src/Core/XDGEnvironment.cpp src/Core/XDGEnvironment.h)
 list(APPEND coresrc src/Core/UserDirs.cpp src/Core/UserDirs.h)
+list(APPEND coresrc src/Core/ProjectFolders.cpp src/Core/ProjectFolders.h)
 list(APPEND coresrc src/Core/LineEnding.cpp src/Core/LineEnding.h)
 list(APPEND coresrc src/Core/InstallPaths.cpp src/Core/InstallPaths.h)
 list(APPEND coresrc src/Core/Session/SessionManager.cpp src/Core/Session/SessionManager.h)

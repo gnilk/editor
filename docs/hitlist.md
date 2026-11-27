@@ -32,6 +32,15 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
   - [x] Windows - the tree was scrolled one column sideways (every row's first character gone) after a resize right at start
     11-27: not reproducible - closed
   - [x] Mac - SDL3 now scales by the display scale (5ef8d147): on paper the same on a Mac - check font size, sharpness, clicks (11-27: ok)
+- **Windows, phase 2** (#81 - files and keys, 2026-11-27; the rules are unit tested, this is the app)
+  - [ ] Windows - **projects outside home** (§3.2): `project_folders: [ 'C:\src' ]` under `windows:` in
+    `%USERPROFILE%\.goatedit\config.yml`, then `goatedit C:\src\<a folder>` from cmd - a project (`.goatedit\` made there,
+    the tree indexed, Quick Open finds its files, the session back on the next start); `cd C:\src\x` then `goatedit` stays
+    there. Without the key: no project (no `.goatedit\` made) and the terminal panel says how to make it one ("... add it (or
+    'C:\src') to windows.project_folders in ...\config.yml"); a start from `C:\src\x` moves to home with the same advice.
+    `goatedit C:\` never a project, and no advice
+  - [ ] Windows - a clang-cl build with an error in the terminal panel (once phase 4 has a terminal) - `F8` to the line: MSVC's
+    `file(12,5): error` read (unit tested on captured output)
 - **Build messages** (#52) - the terminal version scripted (`build_messages`: `cc` on a broken file, `F8` / `Shift+F8` / `Ctrl+F8`)
   - [ ] Linux [x] Mac - the window: `make` / `cmake --build cmake-build-debug` with an error in a file - "build: N errors, M warnings" on the status line when it ends; `F8` opens the first error at its line and column ("error 1/N"), again goes on (errors, then warnings), `Shift+F8` back; `Cmd/Ctrl+[` comes back from each
   - [ ] Linux [x] Mac - `Cmd/Ctrl+F8`: the list (the command and the counts in the caption), type to filter, Enter goes there, `F8` goes on from that one

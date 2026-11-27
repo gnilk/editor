@@ -16,6 +16,7 @@
 #include "Core/RuntimeConfig.h"
 #include "Core/UI/Graphics/KeyboardDriverBase.h"
 #include "Core/Workspace.h"
+#include "Core/ProjectFolders.h"
 #include "Core/Index/CodeIndex.h"
 #include "Core/Index/Indexer.h"
 #include "Core/FileSystem/FileFinder.h"
@@ -310,11 +311,11 @@ namespace gedit {
         // cwd change, nothing created; startup uses it to register kProject before the config load.
         static std::optional<std::filesystem::path> ResolveProjectDir(const std::vector<std::string> &args,
                                                                       const std::filesystem::path &cwd,
-                                                                      const std::filesystem::path &pathHome);
+                                                                      const ProjectFolders &projectFolders);
         // The '.goatedit' dirs of folder args that a launch which isn't a project leaves unused - startup warns.
         static std::vector<std::filesystem::path> UnusedProjectDirs(const std::vector<std::string> &args,
                                                                     const std::filesystem::path &cwd,
-                                                                    const std::filesystem::path &pathHome);
+                                                                    const ProjectFolders &projectFolders);
         // Where a user config is created when none exists yet ('.cfg --user set/edit'): ~/.config/goatedit on
         // macOS, <XDG user data>/goatedit on Linux - the first-choice kUser search paths of each platform.
         static std::filesystem::path GetDefaultUserConfigDir();

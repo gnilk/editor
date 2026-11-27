@@ -13,6 +13,8 @@
 #include <sstream>
 #include <algorithm>
 #include "Core/Editor.h"
+#include "Core/PathUtil.h"
+#include <fmt/format.h>
 
 
 using namespace gedit;
@@ -24,6 +26,9 @@ DLL_EXPORT int test_config_setdyn(ITesting *t);
 DLL_EXPORT int test_config_projectdir_cwd(ITesting *t);
 DLL_EXPORT int test_config_projectdir_folderarg(ITesting *t);
 DLL_EXPORT int test_config_projectdir_guards(ITesting *t);
+DLL_EXPORT int test_config_projectfolders(ITesting *t);
+DLL_EXPORT int test_config_projectfolders_launch(ITesting *t);
+DLL_EXPORT int test_config_projectfolders_hint(ITesting *t);
 DLL_EXPORT int test_config_project_strip(ITesting *t);
 DLL_EXPORT int test_config_project_strip_section(ITesting *t);
 DLL_EXPORT int test_config_project_merge(ITesting *t);
@@ -97,8 +102,8 @@ static std::filesystem::path MakeFakeHome() {
 // Only a clean single-folder launch is a project (hitlist #23) - no arguments: no project, even in a project's folder
 DLL_EXPORT int test_config_projectdir_cwd(ITesting *t) {
     auto home = MakeFakeHome();
-    TR_ASSERT(t, !Editor::ResolveProjectDir({}, home / "proj", home).has_value());
-    TR_ASSERT(t, Editor::UnusedProjectDirs({}, home / "proj", home).empty());
+    TR_ASSERT(t, !Editor::ResolveProjectDir({}, home / "proj", ProjectFolders(home)).has_value());
+    TR_ASSERT(t, Editor::UnusedProjectDirs({}, home / "proj", ProjectFolders(home)).empty());
     return kTR_Pass;
 }
 
@@ -108,43 +113,168 @@ DLL_EXPORT int test_config_projectdir_folderarg(ITesting *t) {
     { std::ofstream f(file); f << "x"; }
 
     // One folder: the project
-    auto dir = Editor::ResolveProjectDir({(home / "other").string()}, home / "proj", home);
+    auto dir = Editor::ResolveProjectDir({(home / "other").string()}, home / "proj", ProjectFolders(home));
     TR_ASSERT(t, dir.has_value());
     TR_ASSERT(t, dir.value() == home / "other" / ".goatedit");
-    TR_ASSERT(t, Editor::UnusedProjectDirs({(home / "other").string()}, home / "proj", home).empty());
+    TR_ASSERT(t, Editor::UnusedProjectDirs({(home / "other").string()}, home / "proj", ProjectFolders(home)).empty());
     // A relative folder resolves against the cwd
-    dir = Editor::ResolveProjectDir({"other"}, home, home);
+    dir = Editor::ResolveProjectDir({"other"}, home, ProjectFolders(home));
     TR_ASSERT(t, dir.has_value() && (dir.value() == home / "other" / ".goatedit"));
 
     // A file and a folder: no project, the folder's settings reported unused
-    TR_ASSERT(t, !Editor::ResolveProjectDir({file, (home / "other").string()}, home / "proj", home).has_value());
-    auto unused = Editor::UnusedProjectDirs({file, (home / "other").string()}, home / "proj", home);
+    TR_ASSERT(t, !Editor::ResolveProjectDir({file, (home / "other").string()}, home / "proj", ProjectFolders(home)).has_value());
+    auto unused = Editor::UnusedProjectDirs({file, (home / "other").string()}, home / "proj", ProjectFolders(home));
     TR_ASSERT(t, (unused.size() == 1) && (unused[0] == home / "other" / ".goatedit"));
 
     // Two folders: no project, both unused; a folder without one isn't reported
-    TR_ASSERT(t, !Editor::ResolveProjectDir({(home / "other").string(), (home / "proj").string()}, home / "bare", home).has_value());
-    unused = Editor::UnusedProjectDirs({(home / "other").string(), (home / "proj").string(), (home / "bare").string()}, home / "bare", home);
+    TR_ASSERT(t, !Editor::ResolveProjectDir({(home / "other").string(), (home / "proj").string()}, home / "bare", ProjectFolders(home)).has_value());
+    unused = Editor::UnusedProjectDirs({(home / "other").string(), (home / "proj").string(), (home / "bare").string()}, home / "bare", ProjectFolders(home));
     TR_ASSERT(t, unused.size() == 2);
 
     // Only a file: no project, even in a project's folder - and nothing to warn about
-    TR_ASSERT(t, !Editor::ResolveProjectDir({file}, home / "proj", home).has_value());
-    TR_ASSERT(t, Editor::UnusedProjectDirs({file}, home / "proj", home).empty());
+    TR_ASSERT(t, !Editor::ResolveProjectDir({file}, home / "proj", ProjectFolders(home)).has_value());
+    TR_ASSERT(t, Editor::UnusedProjectDirs({file}, home / "proj", ProjectFolders(home)).empty());
     return kTR_Pass;
 }
 
 DLL_EXPORT int test_config_projectdir_guards(ITesting *t) {
     auto home = MakeFakeHome();
     // $HOME itself is never a project ('~/.goatedit' is the user dir)
-    TR_ASSERT(t, !Editor::ResolveProjectDir({home.string()}, home, home).has_value());
+    TR_ASSERT(t, !Editor::ResolveProjectDir({home.string()}, home, ProjectFolders(home)).has_value());
     // No .goatedit -> nothing (resolving never creates it)
-    TR_ASSERT(t, !Editor::ResolveProjectDir({(home / "bare").string()}, home, home).has_value());
+    TR_ASSERT(t, !Editor::ResolveProjectDir({(home / "bare").string()}, home, ProjectFolders(home)).has_value());
     TR_ASSERT(t, !std::filesystem::exists(home / "bare" / ".goatedit"));
     // Outside home - even with a .goatedit
     auto outside = home.parent_path() / "outside";
     // An outside folder arg is the root (not a fallback to the cwd's project)
-    TR_ASSERT(t, !Editor::ResolveProjectDir({outside.string()}, home / "proj", home).has_value());
+    TR_ASSERT(t, !Editor::ResolveProjectDir({outside.string()}, home / "proj", ProjectFolders(home)).has_value());
     // A bare folder arg doesn't fall back to the cwd's project either
-    TR_ASSERT(t, !Editor::ResolveProjectDir({(home / "bare").string()}, home / "proj", home).has_value());
+    TR_ASSERT(t, !Editor::ResolveProjectDir({(home / "bare").string()}, home / "proj", ProjectFolders(home)).has_value());
+    return kTR_Pass;
+}
+
+// windows-port.md §3.2: besides home, a project may live in a project folder ('C:\\src') - never in a system folder,
+// never a filesystem root, home or a folder that holds home; a project folder that would widen the rule is dropped.
+// Pure: the folders are given, so the rules run on every OS
+DLL_EXPORT int test_config_projectfolders(ITesting *t) {
+    auto base = std::filesystem::temp_directory_path() / "goatedit_config_projectfolders";
+    std::error_code ec;
+    std::filesystem::remove_all(base, ec);
+    auto home = base / "home";
+    auto src = base / "src";
+    auto system = base / "system";
+    for (auto &dir : {home / "a", src / "proj", system / "app"}) {
+        std::filesystem::create_directories(dir);
+    }
+    auto root = base.root_path();
+
+    // Home only - unix's rule, and Windows without the setting
+    ProjectFolders homeOnly(home);
+    TR_ASSERT(t, homeOnly.CanHoldProject(home / "a"));
+    TR_ASSERT(t, !homeOnly.CanHoldProject(home));
+    TR_ASSERT(t, !homeOnly.CanHoldProject(base));
+    TR_ASSERT(t, !homeOnly.CanHoldProject(src / "proj"));
+    TR_ASSERT(t, !homeOnly.CanHoldProject(root));
+    TR_ASSERT(t, homeOnly.IsWithin(home) && homeOnly.IsWithin(home / "a"));
+    TR_ASSERT(t, !homeOnly.IsWithin(src));
+
+    ProjectFolders folders(home, {src, system}, {system});
+    TR_ASSERT(t, folders.CanHoldProject(src / "proj"));
+    TR_ASSERT(t, folders.CanHoldProject(home / "a"));
+    // The project folder itself is no project, but a launch there stays there
+    TR_ASSERT(t, !folders.CanHoldProject(src));
+    TR_ASSERT(t, folders.IsWithin(src) && folders.IsWithin(src / "proj"));
+    // A system folder - also when the user listed it
+    TR_ASSERT(t, !folders.CanHoldProject(system / "app"));
+    TR_ASSERT(t, folders.IsTooWide(system));
+    TR_ASSERT(t, folders.IsTooWide(home) && folders.IsTooWide(base) && folders.IsTooWide(root));
+    TR_ASSERT(t, !folders.IsTooWide(src / "proj") && !folders.IsTooWide(home / "a"));
+    // A name that only starts like the folder isn't in it
+    TR_ASSERT(t, !folders.CanHoldProject(base / "src2" / "proj"));
+
+    // Folders that would widen the rule are dropped: a root, one that holds home, a relative one
+    ProjectFolders widening(home, {root, base, "src"});
+    TR_ASSERT(t, widening.Folders().empty());
+    TR_ASSERT(t, !widening.CanHoldProject(src / "proj"));
+#ifdef GEDIT_WINDOWS
+    // One folder whatever the case it is written in
+    auto upper = src.string();
+    std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char ch) { return (char)std::toupper(ch); });
+    ProjectFolders upperCase(home, {std::filesystem::path(upper)});
+    TR_ASSERT(t, upperCase.CanHoldProject(src / "proj"));
+#endif
+    return kTR_Pass;
+}
+
+// A launch with a folder in a project folder: its '.goatedit' is the project - only with the setting
+DLL_EXPORT int test_config_projectfolders_launch(ITesting *t) {
+    auto home = MakeFakeHome();
+    auto outside = home.parent_path() / "outside";
+    std::filesystem::create_directories(outside / "proj" / ".goatedit");
+    auto arg = (outside / "proj").string();
+    TR_ASSERT(t, !Editor::ResolveProjectDir({arg}, home, ProjectFolders(home)).has_value());
+    auto dir = Editor::ResolveProjectDir({arg}, home, ProjectFolders(home, {outside}));
+    TR_ASSERT(t, dir.has_value() && (dir.value() == outside / "proj" / ".goatedit"));
+    // The project folder itself: never (as home itself)
+    TR_ASSERT(t, !Editor::ResolveProjectDir({outside.string()}, home, ProjectFolders(home, {outside})).has_value());
+    // Not one folder: reported unused, from a project folder too
+    auto unused = Editor::UnusedProjectDirs({arg, (home / "proj").string()}, home, ProjectFolders(home, {outside}));
+    TR_ASSERT(t, unused.size() == 2);
+
+    // The key is the user's: a project config can't widen where projects live
+    auto projectConfig = ConfigNode::FromString("windows:\n  project_folders: [ '/' ]\n  default_keymap: x.yml\n");
+    TR_ASSERT(t, projectConfig.has_value());
+    auto removed = ProjectConfigPolicy::StripDeniedKeys(projectConfig.value());
+    TR_ASSERT(t, std::find(removed.begin(), removed.end(), "windows.project_folders") != removed.end());
+    TR_ASSERT(t, !projectConfig.value()["windows"].HasKey("project_folders"));
+    return kTR_Pass;
+}
+
+// The notice for a folder outside home (shown on Windows): names the folder, its parent when that could be a project
+// folder, the key and the user config file - and is only given when adding the folder would help
+DLL_EXPORT int test_config_projectfolders_hint(ITesting *t) {
+    auto base = pathutil::CanonicalPath(std::filesystem::temp_directory_path() / "goatedit_config_projectfolders_hint");
+    std::error_code ec;
+    std::filesystem::remove_all(base, ec);
+    auto home = base / "home";
+    auto src = base / "src";
+    auto other = base / "other";
+    auto system = base / "system";
+    for (auto &dir : {home / "a", src / "proj", other / "proj", system / "app"}) {
+        std::filesystem::create_directories(dir);
+    }
+    auto configFile = home / ".goatedit" / "config.yml";
+
+    ProjectFolders homeOnly(home, {}, {system});
+    auto hint = homeOnly.NotAProjectHint(src / "proj", configFile);
+    TR_ASSERT(t, hint == fmt::format("'{}' is outside your home folder, so it isn't a project - to make it one, add it (or '{}') "
+                                     "to windows.project_folders in {}", (src / "proj").string(), src.string(), configFile.string()));
+    // Adding it wouldn't help - or it is a project place already
+    TR_ASSERT(t, homeOnly.NotAProjectHint(home / "a", configFile).empty());
+    TR_ASSERT(t, homeOnly.NotAProjectHint(home, configFile).empty());
+    TR_ASSERT(t, homeOnly.NotAProjectHint(base, configFile).empty());
+    TR_ASSERT(t, homeOnly.NotAProjectHint(base.root_path(), configFile).empty());
+    TR_ASSERT(t, homeOnly.NotAProjectHint(system / "app", configFile).empty());
+    // Right below a drive root: the root is no project folder - only the folder is suggested
+    auto belowRoot = base.root_path() / "goatedit_config_projectfolders_none";
+    hint = homeOnly.NotAProjectHint(belowRoot, configFile);
+    TR_ASSERT(t, hint.find("add it to windows.project_folders") != std::string::npos);
+    TR_ASSERT(t, hint.find("(or") == std::string::npos);
+
+    // With project folders: inside one, nothing to say; outside, both are named
+    ProjectFolders withSrc(home, {src}, {system});
+    TR_ASSERT(t, withSrc.NotAProjectHint(src / "proj", configFile).empty());
+    hint = withSrc.NotAProjectHint(other / "proj", configFile);
+    TR_ASSERT(t, hint.find("outside your home folder and project folders") != std::string::npos);
+
+    // Started outside home, moved there
+    hint = homeOnly.StartedOutsideHint(src / "proj", configFile);
+    TR_ASSERT(t, hint == fmt::format("started in '{}', outside your home folder - working in '{}'. If it is a project folder, "
+                                     "add it (or '{}') to windows.project_folders in {}", (src / "proj").string(),
+                                     home.string(), src.string(), configFile.string()));
+    // Explorer's own folder, a drive root: the plain notice instead
+    TR_ASSERT(t, homeOnly.StartedOutsideHint(system / "app", configFile).empty());
+    TR_ASSERT(t, homeOnly.StartedOutsideHint(base.root_path(), configFile).empty());
     return kTR_Pass;
 }
 

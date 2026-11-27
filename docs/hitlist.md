@@ -27,9 +27,11 @@ keys and drawing. Linux run 2026-11-17: all pass (`sdl_no_display` since the #49
     `@ $`, AltGr+`<` `|`, AltGr+E `€`, `~` (dead key) - the character, not a Ctrl+Alt shortcut. The user codes on US layout, so
     this is for other users. 11-27: was Alt+<key> (the character dropped) - fixed (`Keyboard::IsAltGrText`), works on SE
   - [x] Windows - Alt+`{` / `}` in the workspace tree moves up / down: meant, or should it be the tabs there too? 11-27: fine as it is
-  - [ ] Windows - Alt+`\` does nothing (US layout) - bound to anything on Linux?
-  - [ ] Windows - the tree was scrolled one column sideways (every row's first character gone) after a resize right at start
-  - [ ] Mac - SDL3 now scales by the display scale (5ef8d147): on paper the same on a Mac - check font size, sharpness, clicks
+  - [x] Windows - Alt+`\` does nothing (US layout) - bound to anything on Linux? 11-27: it cycles the active tab, as Opt+`\` on the
+    Mac - works on US; on SE (`\` is AltGr+`+`) there is no Alt+`\`, and that is fine
+  - [x] Windows - the tree was scrolled one column sideways (every row's first character gone) after a resize right at start
+    11-27: not reproducible - closed
+  - [x] Mac - SDL3 now scales by the display scale (5ef8d147): on paper the same on a Mac - check font size, sharpness, clicks (11-27: ok)
 - **Build messages** (#52) - the terminal version scripted (`build_messages`: `cc` on a broken file, `F8` / `Shift+F8` / `Ctrl+F8`)
   - [ ] Linux [x] Mac - the window: `make` / `cmake --build cmake-build-debug` with an error in a file - "build: N errors, M warnings" on the status line when it ends; `F8` opens the first error at its line and column ("error 1/N"), again goes on (errors, then warnings), `Shift+F8` back; `Cmd/Ctrl+[` comes back from each
   - [ ] Linux [x] Mac - `Cmd/Ctrl+F8`: the list (the command and the counts in the caption), type to filter, Enter goes there, `F8` goes on from that one

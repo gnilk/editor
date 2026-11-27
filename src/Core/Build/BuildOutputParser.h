@@ -5,7 +5,7 @@
 // across two reads - and a message is listed as soon as its line is complete. The same parser reads a finished
 // command's output after the fact (Feed it all, then Finish()). No terminal, no editor: text in, messages out.
 //
-// The tools it knows are built in (§9.2): gcc / clang (also through make, ninja, cmake --build), CMake's own
+// The tools it knows are built in (§9.2): gcc / clang, MSVC / clang-cl (also through make, ninja, cmake --build), CMake's own
 // messages, trun's test failures, rustc / cargo, GNU ld / lld, Python's tracebacks and warnings, and make's / ninja's
 // 'Entering directory' (what relative paths are relative to).
 //
@@ -62,6 +62,13 @@ namespace gedit {
             kCMake,     // CMake: the indented message lines, blank lines inside
             kRust,      // rustc: ' --> path:line:col' (the place), the '  |' source lines, '  = note:', up to a blank line
         };
+        // Where a compiler line's severity marker is: the location ends at 'location', the message starts at 'textStart'
+        struct SeverityMarker {
+            size_t location = std::string::npos;
+            size_t textStart = 0;
+            BuildMessage::kSeverity severity = BuildMessage::kSeverity::kError;
+            std::string code;   // MSVC's 'C2065', 'LNK2019'; empty for gcc / clang
+        };
         // One 'File "path", line N, in f' of a Python traceback, with the source lines under it
         struct PythonFrame {
             std::string path;
@@ -81,6 +88,9 @@ namespace gedit {
         bool ParseLinker(const std::string &line);
         void ParseLinkerReference(const std::string &line);
         bool ParseCompiler(const std::string &line);
+        static SeverityMarker FindSeverity(std::string_view text);
+        static bool SplitMSVCLocation(std::string_view location, std::string &path, uint32_t &line, uint32_t &column);
+        static std::string StripMSBuildProject(const std::string &line);
         bool ParseCMake(const std::string &line);
         bool ParseContinuation(const std::string &line);
         bool ParseIncludeContext(const std::string &line);

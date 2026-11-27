@@ -59,6 +59,7 @@ The formats that matter, with their quirks:
 | Tool | Shape | Notes |
 |---|---|---|
 | gcc / clang | `path:line:col: error: msg` / `warning:` / `note:` | `note:` and `In file included from` / `required from` lines belong to the message above them; `[-Wfoo]` at the end is the flag; the same header warning comes once per translation unit - de-duplicate |
+| MSVC / clang-cl | `path(line): error C2065: msg`, `path(line,col): warning: msg`, `x.obj : error LNK2019: msg` | **built 2026-11-27** (Windows port §4.4): the code goes to the end (`msg [C2065]`); cl's notes are lines of their own (`path(line): note:`), clang-cl's source + caret as clang's; `cl : Command line warning D9002 :` and the LNK lines have no place; MSBuild's ` [x.vcxproj]` suffix is dropped |
 | ld / lld | `path:(.text+0x..): undefined reference to ...`, `ld: error: ...` | often no line - the file is still worth a row |
 | CMake | `CMake Error at path:line (cmd):` then indented lines | the message is on the lines after |
 | make | `make[2]: Entering directory '/x'` / `Leaving directory` | not a message - it changes what relative paths are relative to; `make: *** [...] Error 1` is noise next to the real error |
@@ -164,6 +165,11 @@ Found while building it:
   - **rustc / cargo** (`cargo.log` - real captures): `error[E0308]: msg` takes its place from the ` --> ` line under
     it; the code goes to the end (`msg [E0308]`, as gcc's `[-Wfoo]`). Cargo's summaries (`could not compile`,
     `generated 1 warning`, `aborting due to`) are not messages.
+  - **MSVC / clang-cl (2026-11-27)** (`msvc-cl.log`, `clang-cl.log` - real captures on Windows, CRLF): the place is
+    `path(line)` or `path(line,col)` (`/diagnostics:column`, clang-cl's default), the severity may carry a code
+    (`error C2065`, `fatal error C1083`, `Command line warning D9002`), and MSVC's tools put a blank before the colon
+    (`x.obj : error`). The code goes to the end of the message, as rustc's. A temp `.obj` in lld-link's
+    `>>> referenced by` is no place.
   - **GNU ld / lld** (`ld.log` - written from the format, no GNU ld on the Mac): `undefined reference to` /
     `multiple definition of`, the place from `file:line:` (with `-g`) or the file alone (`main.cpp:(.text+0x9)`); an
     object or archive (`libfoo.a(foo.o)`) is no place. `in function `main':` is context. lld's place is on its

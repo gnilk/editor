@@ -1,0 +1,16 @@
+msvcbad.cpp(6,10): error: cannot initialize a parameter of type 'int' with an lvalue of type 'const char[5]'
+    6 |     b->f("text");
+      |          ^~~~~~
+msvcbad.cpp(1,34): note: passing argument to parameter 'a' here
+    1 | struct Base { virtual void f(int a); };
+      |                                  ^
+msvcbad.cpp(7,12): error: use of undeclared identifier 'undeclared'
+    7 |     return undeclared + 1;
+      |            ^~~~~~~~~~
+msvcbad.cpp(3,14): warning: unused parameter 'argc' [-Wunused-parameter]
+    3 | int main(int argc, char **argv) {
+      |              ^
+2 warnings and 2 errors generated.
+lld-link: error: undefined symbol: void __cdecl g(void)
+>>> referenced by C:\Temp\msvclink-d8b2ff.obj:(main)
+clang-cl: error: linker command failed with exit code 1 (use -v to see invocation)

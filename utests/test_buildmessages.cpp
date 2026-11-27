@@ -36,6 +36,9 @@ extern "C" {
     DLL_EXPORT int test_buildmessages_carriagereturn(ITesting *t);
     DLL_EXPORT int test_buildmessages_noplace(ITesting *t);
     DLL_EXPORT int test_buildmessages_driveletter(ITesting *t);
+    DLL_EXPORT int test_buildmessages_msvc(ITesting *t);
+    DLL_EXPORT int test_buildmessages_clangcl(ITesting *t);
+    DLL_EXPORT int test_buildmessages_msvcshapes(ITesting *t);
     DLL_EXPORT int test_buildmessages_makedirs(ITesting *t);
     DLL_EXPORT int test_buildmessages_reset(ITesting *t);
     DLL_EXPORT int test_buildmessages_commands(ITesting *t);
@@ -466,6 +469,92 @@ DLL_EXPORT int test_buildmessages_driveletter(ITesting *t) {
     // No line: a tool's own line - the whole location goes into the message, as 'clang: error: ...'
     TR_ASSERT(t, messages[2].path.empty());
     TR_ASSERT(t, messages[2].message == "C:\\src\\c.cpp: no place");
+    return kTR_Pass;
+}
+
+// cl.exe (captured on Windows, CRLF): 'file(line)' or 'file(line,col)', the code at the end of the message, its notes
+// on lines of their own; the link errors and cl's command line warning have no place
+DLL_EXPORT int test_buildmessages_msvc(ITesting *t) {
+    auto log = ReadLog("msvc-cl.log");
+    TR_ASSERT(t, !log.empty());
+    auto parser = ParseAll(log);
+    auto &messages = parser.Messages();
+    TR_ASSERT(t, messages.size() == 8);
+    TR_ASSERT(t, parser.NumErrors() == 5);
+    TR_ASSERT(t, parser.NumWarnings() == 3);
+
+    auto &convert = messages[0];
+    TR_ASSERT(t, convert.path == "msvcbad.cpp");
+    TR_ASSERT(t, (convert.line == 6) && (convert.column == 0));
+    TR_ASSERT(t, convert.message == "'void Base::f(int)': cannot convert argument 1 from 'const char [5]' to 'int' [C2664]");
+    TR_ASSERT(t, convert.detail.size() == 3);
+    TR_ASSERT(t, HasDetail(convert, "msvcbad.cpp(1): note: see declaration of 'Base::f'"));
+
+    TR_ASSERT(t, (messages[1].line == 7) && (messages[1].column == 12));
+    TR_ASSERT(t, messages[1].message == "'undeclared': undeclared identifier [C2065]");
+    // cl names the file it compiles on a line of its own - not detail
+    TR_ASSERT(t, messages[1].detail.empty());
+
+    TR_ASSERT(t, messages[2].path == "msvcerr.cpp");
+    TR_ASSERT(t, messages[2].line == 2);
+    TR_ASSERT(t, messages[2].IsError());
+
+    TR_ASSERT(t, messages[3].IsWarning());
+    TR_ASSERT(t, messages[3].path.empty());
+    TR_ASSERT(t, messages[3].message == "cl: ignoring unknown option '/Bogus' [D9002]");
+
+    TR_ASSERT(t, messages[4].path == "C:\\src\\probe\\msvcwarn.cpp");
+    TR_ASSERT(t, messages[4].line == 1);
+    TR_ASSERT(t, messages[4].message == "'a': unreferenced parameter [C4100]");
+
+    TR_ASSERT(t, messages[6].path.empty());
+    TR_ASSERT(t, messages[6].message.find("msvclink.obj: unresolved external symbol") == 0);
+    TR_ASSERT(t, messages[6].message.find("[LNK2019]") != std::string::npos);
+    TR_ASSERT(t, messages[7].message == "msvclink.exe: 1 unresolved externals [LNK1120]");
+    return kTR_Pass;
+}
+
+// clang-cl (captured on Windows): the MSVC place, clang's source + caret under it; lld-link's undefined symbol
+DLL_EXPORT int test_buildmessages_clangcl(ITesting *t) {
+    auto log = ReadLog("clang-cl.log");
+    TR_ASSERT(t, !log.empty());
+    auto parser = ParseAll(log);
+    auto &messages = parser.Messages();
+    TR_ASSERT(t, messages.size() == 5);
+    TR_ASSERT(t, parser.NumErrors() == 4);
+    TR_ASSERT(t, parser.NumWarnings() == 1);
+
+    TR_ASSERT(t, messages[0].path == "msvcbad.cpp");
+    TR_ASSERT(t, (messages[0].line == 6) && (messages[0].column == 10));
+    TR_ASSERT(t, messages[0].message == "cannot initialize a parameter of type 'int' with an lvalue of type 'const char[5]'");
+    TR_ASSERT(t, HasDetail(messages[0], "b->f(\"text\");"));
+    TR_ASSERT(t, HasDetail(messages[0], "msvcbad.cpp(1,34): note: passing argument"));
+
+    TR_ASSERT(t, (messages[1].line == 7) && (messages[1].column == 12));
+    TR_ASSERT(t, (messages[2].line == 3) && (messages[2].column == 14));
+    TR_ASSERT(t, messages[2].message == "unused parameter 'argc' [-Wunused-parameter]");
+
+    // The .obj is a temp file - no place to go to
+    TR_ASSERT(t, messages[3].path.empty());
+    TR_ASSERT(t, messages[3].message == "lld-link: undefined symbol: void __cdecl g(void)");
+    TR_ASSERT(t, messages[4].message.find("clang-cl: linker command failed") == 0);
+    return kTR_Pass;
+}
+
+// The shapes around the edges: MSBuild's project suffix, a path with blanks and parentheses, what isn't a place
+DLL_EXPORT int test_buildmessages_msvcshapes(ITesting *t) {
+    auto parser = ParseAll("C:\\src\\a.cpp(3,5): error C2065: 'x': undeclared identifier [C:\\src\\x.vcxproj]\n"
+                           "C:\\Program Files (x86)\\b (1).cpp(9): warning C4100: 'p': unreferenced parameter\n"
+                           "in f(x): error C1: not a place\n"
+                           "see the log: error: too\n"
+                           "a.cpp(4): errors: none\n");
+    auto &messages = parser.Messages();
+    TR_ASSERT(t, messages.size() == 2);
+    TR_ASSERT(t, messages[0].path == "C:\\src\\a.cpp");
+    TR_ASSERT(t, (messages[0].line == 3) && (messages[0].column == 5));
+    TR_ASSERT(t, messages[0].message == "'x': undeclared identifier [C2065]");
+    TR_ASSERT(t, messages[1].path == "C:\\Program Files (x86)\\b (1).cpp");
+    TR_ASSERT(t, messages[1].line == 9);
     return kTR_Pass;
 }
 

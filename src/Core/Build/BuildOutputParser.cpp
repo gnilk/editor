@@ -660,37 +660,37 @@ bool BuildOutputParser::ParseCMake(const std::string &line) {
     return true;
 }
 
-// gcc / clang: 'path:line:col: error: msg' ('warning:', 'fatal error:', 'note:'); a tool's own 'clang: error: ...'
+// gcc / clang: 'path:line:col: error: msg' ('warning:', 'fatal error:', 'note:'); a tool's own 'clang: error: ...'.
+// MSVC and clang-cl: 'path(line): error C2065: msg', 'path(line,col): warning: msg', 'x.obj : error LNK2019: msg',
+// 'cl : Command line warning D9002 : msg' - the code goes at the end of the message, as clang's '[-Wflag]'
 bool BuildOutputParser::ParseCompiler(const std::string &line) {
-    static const std::pair<std::string_view, BuildMessage::kSeverity> markers[] = {
-        {": fatal error: ", BuildMessage::kSeverity::kError},
-        {": error: ", BuildMessage::kSeverity::kError},
-        {": warning: ", BuildMessage::kSeverity::kWarning},
-        {": note: ", BuildMessage::kSeverity::kNote},
-    };
-    auto pos = std::string::npos;
-    size_t markerSize = 0;
-    BuildMessage message;
-    // The line's trailing blanks are gone: 'x.cpp:3:4: warning:' when clang wrapped all of the message
-    auto text = line + " ";
-    for (auto &[marker, severity] : markers) {
-        auto found = text.find(marker);
-        if ((found != std::string::npos) && (found < pos)) {
-            pos = found;
-            markerSize = marker.size();
-            message.severity = severity;
-        }
-    }
-    if ((pos == std::string::npos) || (pos == 0) || IsIndented(line)) {
+    if (IsIndented(line)) {
         return false;
     }
-    auto location = std::string_view(line).substr(0, pos);
-    message.message = Trim(std::string_view(text).substr(pos + markerSize));
-    SplitLocation(location, message.path, message.line, message.column);
+    // The line's trailing blanks are gone: 'x.cpp:3:4: warning:' when clang wrapped all of the message
+    auto text = StripMSBuildProject(line) + " ";
+    auto header = FindSeverity(text);
+    if ((header.location == std::string::npos) || (header.location == 0)) {
+        return false;
+    }
+    BuildMessage message;
+    message.severity = header.severity;
+    message.message = Trim(std::string_view(text).substr(header.textStart));
+    if (!header.code.empty()) {
+        message.message += message.message.empty() ? "[" + header.code + "]" : " [" + header.code + "]";
+    }
+    // 'x.obj : error' - MSVC's tools put a blank before the colon
+    auto location = std::string_view(text).substr(0, header.location);
+    while (!location.empty() && (location.back() == ' ')) {
+        location.remove_suffix(1);
+    }
+    if (!SplitMSVCLocation(location, message.path, message.line, message.column)) {
+        SplitLocation(location, message.path, message.line, message.column);
+    }
     if (message.line == 0) {
         // No place: only a tool's own line counts ('clang: error: linker command failed', 'ld: warning: ...'), so
         // a sentence that happens to hold ': error: ' doesn't
-        if (location.find(' ') != std::string_view::npos) {
+        if (location.empty() || (location.find(' ') != std::string_view::npos)) {
             return false;
         }
         message.message = std::string(location) + ": " + message.message;
@@ -699,6 +699,97 @@ bool BuildOutputParser::ParseCompiler(const std::string &line) {
     Add(std::move(message), kContinuation::kCompiler, true);
     isMessageWrapOpen = true;
     return true;
+}
+
+// The first severity marker on the line: ': error: ' (gcc / clang) or ': error C2065: ' / ' : error LNK2019: ' /
+// ': Command line warning D9002 : ' (MSVC) - where the location ends and the message starts
+BuildOutputParser::SeverityMarker BuildOutputParser::FindSeverity(std::string_view text) {
+    static const std::pair<std::string_view, BuildMessage::kSeverity> markers[] = {
+        {": fatal error", BuildMessage::kSeverity::kError},
+        {": error", BuildMessage::kSeverity::kError},
+        {": warning", BuildMessage::kSeverity::kWarning},
+        {": note", BuildMessage::kSeverity::kNote},
+        {": Command line error", BuildMessage::kSeverity::kError},
+        {": Command line warning", BuildMessage::kSeverity::kWarning},
+    };
+    SeverityMarker best;
+    for (auto &[marker, severity] : markers) {
+        size_t from = 0;
+        while (from < text.size()) {
+            auto found = text.find(marker, from);
+            if ((found == std::string_view::npos) || (found >= best.location)) {
+                break;
+            }
+            from = found + 1;
+            auto end = found + marker.size();
+            std::string code;
+            // MSVC's code: ' C2065', 'LNK2019', 'D9002' - letters then digits
+            if ((end < text.size()) && (text[end] == ' ')) {
+                auto start = end + 1;
+                auto pos = start;
+                while ((pos < text.size()) && std::isupper((unsigned char)text[pos])) {
+                    pos++;
+                }
+                auto digits = pos;
+                while ((pos < text.size()) && std::isdigit((unsigned char)text[pos])) {
+                    pos++;
+                }
+                if ((digits == start) || (pos == digits)) {
+                    continue;
+                }
+                code = std::string(text.substr(start, pos - start));
+                end = pos;
+                if ((end < text.size()) && (text[end] == ' ')) {
+                    end++;
+                }
+            }
+            if ((end + 1 >= text.size()) || (text[end] != ':') || (text[end + 1] != ' ')) {
+                continue;
+            }
+            best.location = found;
+            best.textStart = end + 2;
+            best.severity = severity;
+            best.code = std::move(code);
+            break;
+        }
+    }
+    return best;
+}
+
+// MSVC's 'path(line)' / 'path(line,col)' - false when the location isn't one
+bool BuildOutputParser::SplitMSVCLocation(std::string_view location, std::string &path, uint32_t &line, uint32_t &column) {
+    if (location.empty() || (location.back() != ')')) {
+        return false;
+    }
+    auto open = location.rfind('(');
+    if ((open == std::string_view::npos) || (open == 0)) {
+        return false;
+    }
+    auto inside = location.substr(open + 1, location.size() - open - 2);
+    auto comma = inside.find(',');
+    auto lineText = inside.substr(0, comma);
+    auto columnText = (comma == std::string_view::npos) ? std::string_view() : inside.substr(comma + 1);
+    if (!IsAllDigits(lineText) || (!columnText.empty() && !IsAllDigits(columnText)) ||
+        ((comma != std::string_view::npos) && columnText.empty())) {
+        return false;
+    }
+    path = std::string(location.substr(0, open));
+    line = (uint32_t)std::stoul(std::string(lineText));
+    column = columnText.empty() ? 0 : (uint32_t)std::stoul(std::string(columnText));
+    return true;
+}
+
+// MSBuild ends every line with the project it builds: 'a.cpp(3): error C2065: msg [C:\src\x.vcxproj]'
+std::string BuildOutputParser::StripMSBuildProject(const std::string &line) {
+    static const std::string_view suffix = "proj]";
+    if ((line.size() < suffix.size()) || (line.compare(line.size() - suffix.size(), suffix.size(), suffix) != 0)) {
+        return line;
+    }
+    auto open = line.rfind(" [");
+    if (open == std::string::npos) {
+        return line;
+    }
+    return line.substr(0, open);
 }
 
 // 'In file included from a.h:3,' / '                 from b.cpp:1:' / 'x.cpp: In function 'int f()':' - kept for

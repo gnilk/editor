@@ -1,0 +1,16 @@
+msvcbad.cpp
+msvcbad.cpp(6): error C2664: 'void Base::f(int)': cannot convert argument 1 from 'const char [5]' to 'int'
+msvcbad.cpp(6): note: There is no context in which this conversion is possible
+msvcbad.cpp(1): note: see declaration of 'Base::f'
+msvcbad.cpp(6): note: while trying to match the argument list '(const char [5])'
+msvcbad.cpp(7,12): error C2065: 'undeclared': undeclared identifier
+msvcerr.cpp
+msvcerr.cpp(2): fatal error C1083: Cannot open include file: 'msvcerr_missing.h': No such file or directory
+Generating Code...
+cl : Command line warning D9002 : ignoring unknown option '/Bogus'
+msvcwarn.cpp
+C:\src\probe\msvcwarn.cpp(1): warning C4100: 'a': unreferenced parameter
+C:\src\probe\msvcwarn.cpp(2): warning C4189: 'unused': local variable is initialized but not referenced
+msvclink.cpp
+msvclink.obj : error LNK2019: unresolved external symbol "void __cdecl g(void)" (?g@@YAXXZ) referenced in function main
+msvclink.exe : fatal error LNK1120: 1 unresolved externals
